@@ -22,7 +22,7 @@ const getSiteIcon = (siteName: string) => {
   if (name.includes('mastercard')) return { name: 'cc-mastercard', color: '#EB001B', brand: true };
   if (name.includes('google')) return { name: 'google', color: '#4285F4', brand: true };
   if (name.includes('twitter') || name.includes('x')) return { name: 'twitter', color: '#1DA1F2', brand: true };
-  if (name.includes('github')) return { name: 'github', color: '#333333', brand: true };
+  if (name.includes('github')) return { name: 'github', color: '#7e7b7b', brand: true };
   if (name.includes('apple')) return { name: 'apple', color: '#000000', brand: true };
 
   // Fallback icon for uncommon apps/sites

@@ -24,6 +24,7 @@ export interface Note {
   content: string;
   createdAt: string;
   isFavorite: boolean;
+  isCompleted?: boolean;
 }
 
 const NOTES_KEY = 'notesKey';
@@ -49,8 +50,6 @@ export default function NotesScreen() {
       const data = await AsyncStorage.getItem(NOTES_KEY);
       if (data) {
         const parsed: Note[] = JSON.parse(data);
-        // Sort latest notes on top
-        parsed.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setNotes(parsed);
       }
     } catch (e) {
@@ -67,6 +66,23 @@ export default function NotesScreen() {
   const saveNotesToStorage = async (updatedNotes: Note[]) => {
     setNotes(updatedNotes);
     await AsyncStorage.setItem(NOTES_KEY, JSON.stringify(updatedNotes));
+  };
+
+  const handleToggleFavorite = async (noteToToggle: Note) => {
+    const updated = notes.map(n => 
+      n.id === noteToToggle.id ? { ...n, isFavorite: !n.isFavorite } : n
+    );
+    await saveNotesToStorage(updated);
+  };
+
+  const handleToggleComplete = async () => {
+    if (selectedNote) {
+      const updated = notes.map(n => 
+        n.id === selectedNote.id ? { ...n, isCompleted: !n.isCompleted } : n
+      );
+      await saveNotesToStorage(updated);
+      setMenuVisible(false);
+    }
   };
 
   const handleCopyNote = async () => {
@@ -97,13 +113,22 @@ export default function NotesScreen() {
     return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  // Filter & Search Notes
-  const filteredNotes = notes.filter(note => {
-    const matchesTab = activeTab === 'all' ? true : note.isFavorite;
-    const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          note.content.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTab && matchesSearch;
-  });
+  // Filter & Search Notes + Sort (Uncompleted first, latest date first)
+  const filteredNotes = notes
+    .filter(note => {
+      const matchesTab = activeTab === 'all' ? true : note.isFavorite;
+      const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            note.content.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesTab && matchesSearch;
+    })
+    .sort((a, b) => {
+      // Move completed notes to bottom
+      if (!!a.isCompleted !== !!b.isCompleted) {
+        return a.isCompleted ? 1 : -1;
+      }
+      // Standard timestamp sorting (latest first)
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
   // Distribute into 2 columns for a masonry style
   const leftColumn = filteredNotes.filter((_, index) => index % 2 === 0);
@@ -173,7 +198,8 @@ export default function NotesScreen() {
                   item={item}
                   theme={theme}
                   timeLabel={formatRelativeTime(item.createdAt)}
-                  onOpenMenu={(note:any) => {
+                  onToggleFavorite={() => handleToggleFavorite(item)}
+                  onOpenMenu={(note: any) => {
                     setSelectedNote(note);
                     setMenuVisible(true);
                   }}
@@ -189,7 +215,8 @@ export default function NotesScreen() {
                   item={item}
                   theme={theme}
                   timeLabel={formatRelativeTime(item.createdAt)}
-                  onOpenMenu={(note:any) => {
+                  onToggleFavorite={() => handleToggleFavorite(item)}
+                  onOpenMenu={(note: any) => {
                     setSelectedNote(note);
                     setMenuVisible(true);
                   }}
@@ -215,6 +242,21 @@ export default function NotesScreen() {
             >
               <FontAwesome5 name="edit" size={16} color={theme.title} style={{ marginRight: 12 }} />
               <Text style={[styles.menuOptionText, { color: theme.title }]}>Edit</Text>
+            </Pressable>
+
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+            {/* TOGGLE COMPLETE OPTION */}
+            <Pressable style={styles.menuOption} onPress={handleToggleComplete}>
+              <FontAwesome5 
+                name={selectedNote?.isCompleted ? "undo" : "check-circle"} 
+                size={16} 
+                color={theme.title} 
+                style={{ marginRight: 12 }} 
+              />
+              <Text style={[styles.menuOptionText, { color: theme.title }]}>
+                {selectedNote?.isCompleted ? "Mark Incomplete" : "Mark Complete"}
+              </Text>
             </Pressable>
 
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -255,22 +297,47 @@ export default function NotesScreen() {
   );
 }
 
-// NOTE CARD COMPONENT (No direct click-to-edit)
-const NoteCard = ({ item, theme, timeLabel, onOpenMenu }: any) => {
+// NOTE CARD COMPONENT
+const NoteCard = ({ item, theme, timeLabel, onToggleFavorite, onOpenMenu }: any) => {
   return (
-    <View style={[styles.noteCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <View style={[
+      styles.noteCard, 
+      { backgroundColor: theme.card, borderColor: theme.border, opacity: item.isCompleted ? 0.6 : 1 }
+    ]}>
       <View style={styles.noteHeader}>
         <Text style={[styles.noteTime, { color: theme.subtext }]}>{timeLabel}</Text>
-        <Pressable hitSlop={10} onPress={() => onOpenMenu(item)}>
-          <FontAwesome5 name="ellipsis-v" size={14} color={theme.subtext} />
-        </Pressable>
+        
+        <View style={styles.cardHeaderActions}>
+          <Pressable hitSlop={10} onPress={onToggleFavorite} style={{ marginRight: 12 }}>
+            <FontAwesome5 
+              name="bookmark" 
+              size={14} 
+              solid={item.isFavorite} 
+              color={item.isFavorite ? theme.accent : theme.subtext} 
+            />
+          </Pressable>
+          <Pressable hitSlop={10} onPress={() => onOpenMenu(item)}>
+            <FontAwesome5 name="ellipsis-v" size={14} color={theme.subtext} />
+          </Pressable>
+        </View>
       </View>
       
-      <Text style={[styles.noteTitle, { color: theme.title }]} numberOfLines={2}>
+      <Text 
+        style={[
+          styles.noteTitle, 
+          { color: theme.title, textDecorationLine: item.isCompleted ? 'line-through' : 'none' }
+        ]} 
+        numberOfLines={2}
+      >
         {item.title}
       </Text>
       
-      <Text style={[styles.noteContent, { color: theme.subtext }]} numberOfLines={6}>
+      <Text 
+        style={[
+          styles.noteContent, 
+          { color: theme.subtext, textDecorationLine: item.isCompleted ? 'line-through' : 'none' }
+        ]} 
+      >
         {item.content}
       </Text>
     </View>
@@ -321,13 +388,14 @@ const styles = StyleSheet.create({
   column: { flex: 1, gap: 12 },
   noteCard: { padding: 16, borderRadius: 16, borderWidth: 1 },
   noteHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  cardHeaderActions: { flexDirection: 'row', alignItems: 'center' },
   noteTime: { fontSize: 11, fontWeight: '500' },
   noteTitle: { fontSize: 16, fontWeight: '700', marginBottom: 6 },
   noteContent: { fontSize: 13, lineHeight: 18 },
   emptyContainer: { alignItems: 'center', marginTop: 100 },
   emptyText: { marginTop: 15, fontSize: 16, fontWeight: '500' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
-  menuContainer: { width: 180, borderRadius: 16, borderWidth: 1, paddingVertical: 6, elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8 },
+  menuContainer: { width: 200, borderRadius: 16, borderWidth: 1, paddingVertical: 6, elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8 },
   menuOption: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
   menuOptionText: { fontSize: 15, fontWeight: '600' },
   divider: { height: 1, width: '100%' },
