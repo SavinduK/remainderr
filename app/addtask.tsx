@@ -16,7 +16,7 @@ interface Task {
   description: string;
   completed: boolean;
   date: string; 
-  createdDate: string; // Added createdDate
+  createdDate: string;
   type: 'daily' | 'long-term';
   recurring: boolean; 
 }
@@ -27,13 +27,20 @@ export default function AddTask() {
   const [type, setType] = useState<'daily' | 'long-term'>('daily');
   const [isRecurring, setIsRecurring] = useState(false);
   const [date, setDate] = useState(new Date());
+  
+  // Date/Time Modal State
+  const [pickerMode, setPickerMode] = useState<'date' | 'time' | 'datetime'>('datetime');
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
   const router = useRouter();
 
-  const showDatePicker = () => setDatePickerVisibility(true);
+  const showPicker = (mode: 'date' | 'time' | 'datetime') => {
+    setPickerMode(mode);
+    setDatePickerVisibility(true);
+  };
+
   const hideDatePicker = () => setDatePickerVisibility(false);
 
   const handleConfirm = (selectedDate: Date) => {
@@ -51,9 +58,9 @@ export default function AddTask() {
         history[dateKey] = { completed: [], incomplete: [] };
       }
 
-      const cleanLists = (title: string) => {
-        history[dateKey].completed = history[dateKey].completed.filter((t: string) => t !== title);
-        history[dateKey].incomplete = history[dateKey].incomplete.filter((t: string) => t !== title);
+      const cleanLists = (tTitle: string) => {
+        history[dateKey].completed = history[dateKey].completed.filter((t: string) => t !== tTitle);
+        history[dateKey].incomplete = history[dateKey].incomplete.filter((t: string) => t !== tTitle);
       };
 
       if (action === 'delete') {
@@ -88,8 +95,8 @@ export default function AddTask() {
         title: title.trim(),
         description: description.trim(),
         completed: false,
-        date: type === 'daily' ? new Date().toISOString() : date.toISOString(),
-        createdDate: new Date().toISOString(), // Fixed: Saves creation date timestamp
+        date: date.toISOString(), // Standardized timestamp including set time
+        createdDate: new Date().toISOString(),
         type: type,
         recurring: type === 'daily' ? isRecurring : false,
       };
@@ -116,11 +123,11 @@ export default function AddTask() {
         {/* Header */}
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <FontAwesome5 name='chevron-left' size={22} color={theme.title} />
+            <FontAwesome5 name='chevron-left' size={20} color={theme.title} />
           </Pressable>
           <Text style={[styles.headerTitle, { color: theme.title }]}>New Task</Text>
           <Pressable style={[styles.submitBtn, { backgroundColor: theme.accent }]} onPress={storeData}>
-            <FontAwesome5 name="check" size={18} color="white" />
+            <FontAwesome5 name="check" size={16} color="white" />
           </Pressable>
         </View>
 
@@ -129,7 +136,10 @@ export default function AddTask() {
           <Text style={[styles.label, { color: theme.subtext }]}>Category</Text>
           <View style={[styles.typeContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <Pressable 
-              onPress={() => setType('daily')}
+              onPress={() => {
+                setType('daily');
+                setDate(new Date());
+              }}
               style={[styles.typeBtn, type === 'daily' && { backgroundColor: theme.accent }]}
             >
               <Text style={[styles.typeText, { color: type === 'daily' ? 'white' : theme.subtext }]}>Daily</Text>
@@ -155,13 +165,29 @@ export default function AddTask() {
             style={[styles.input, { backgroundColor: theme.card, color: theme.title, borderColor: theme.border }]}
           />
 
-          {/* Conditional Deadline */}
-          {type === 'long-term' && (
+          {/* Time Selector for Daily Task */}
+          {type === 'daily' && (
             <>
-              <Text style={[styles.label, { color: theme.subtext }]}>Deadline</Text>
+              <Text style={[styles.label, { color: theme.subtext }]}>Time (Optional)</Text>
               <Pressable 
                 style={[styles.input, styles.dateRow, { backgroundColor: theme.card, borderColor: theme.border }]} 
-                onPress={showDatePicker}
+                onPress={() => showPicker('time')}
+              >
+                <Text style={{ color: theme.title, fontWeight: '500' }}>
+                  {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+                <Ionicons name="time-outline" size={20} color={theme.accent} />
+              </Pressable>
+            </>
+          )}
+
+          {/* Date & Time Selector for Long-Term Task */}
+          {type === 'long-term' && (
+            <>
+              <Text style={[styles.label, { color: theme.subtext }]}>Deadline Date & Time</Text>
+              <Pressable 
+                style={[styles.input, styles.dateRow, { backgroundColor: theme.card, borderColor: theme.border }]} 
+                onPress={() => showPicker('datetime')}
               >
                 <Text style={{ color: theme.title, fontWeight: '500' }}>
                   {date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} — {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -171,7 +197,7 @@ export default function AddTask() {
             </>
           )}
 
-          {/* Description */}
+          {/* Description Input */}
           <Text style={[styles.label, { color: theme.subtext }]}>Description (Optional)</Text>
           <TextInput
             multiline
@@ -183,7 +209,7 @@ export default function AddTask() {
             style={[styles.input, styles.textArea, { backgroundColor: theme.card, color: theme.title, borderColor: theme.border }]}
           />
 
-          {/* Recurring Toggle */}
+          {/* Recurring Toggle for Daily Tasks */}
           {type === 'daily' && (
             <View style={[styles.recurringBox, { backgroundColor: theme.background }]}>
               <View style={styles.recurringLabelGroup}>
@@ -200,17 +226,18 @@ export default function AddTask() {
           
           {type === 'daily' && (
             <View style={styles.infoBox}>
-              <Ionicons name="time-outline" size={16} color={theme.subtext} />
+              <Ionicons name="information-circle-outline" size={16} color={theme.subtext} />
               <Text style={[styles.infoText, { color: theme.subtext }]}>
-                {isRecurring ? "This task will repeat every day." : "This task will clear automatically tomorrow at 6:00 AM."}
+                {isRecurring ? "This task will repeat every day." : "This task will reset tomorrow at 6:00 AM."}
               </Text>
             </View>
           )}
         </View>
 
+        {/* Date / Time Picker Modal */}
         <DateTimePickerModal
           isVisible={isDatePickerVisible}
-          mode="datetime"
+          mode={pickerMode}
           onConfirm={handleConfirm}
           onCancel={hideDatePicker}
           date={date}
@@ -223,21 +250,21 @@ export default function AddTask() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: "row", paddingHorizontal: 20, paddingVertical: 20, justifyContent: "space-between", alignItems: "center" },
-  headerTitle: { fontSize: 20, fontWeight: "800" },
+  header: { flexDirection: "row", paddingHorizontal: 20, paddingVertical: 15, justifyContent: "space-between", alignItems: "center" },
+  headerTitle: { fontSize: 18, fontWeight: "800" },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
-  submitBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', elevation: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }},
+  submitBtn: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }},
   content: { paddingHorizontal: 20 },
-  label: { fontSize: 13, fontWeight: "700", marginBottom: 8, marginTop: 20, marginLeft: 4 },
-  input: { borderRadius: 15, padding: 16, fontSize: 16, fontWeight: '500', borderWidth: 1 },
-  textArea: { minHeight: 120 },
+  label: { fontSize: 13, fontWeight: "700", marginBottom: 8, marginTop: 18, marginLeft: 4 },
+  input: { borderRadius: 15, padding: 14, fontSize: 15, fontWeight: '500', borderWidth: 1 },
+  textArea: { minHeight: 100 },
   dateRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   typeContainer: { flexDirection: 'row', borderRadius: 15, padding: 4, borderWidth: 1 },
   typeBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center' },
   typeText: { fontWeight: '700', fontSize: 14 },
-  recurringBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 5, },
+  recurringBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 15, paddingHorizontal: 4 },
   recurringLabelGroup: { flexDirection: 'row', alignItems: 'center' },
   recurringTitle: { fontSize: 14, fontWeight: '700' },
-  infoBox: { flexDirection: 'row', alignItems: 'center', marginTop: 15, gap: 6, paddingHorizontal: 4 },
+  infoBox: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 6, paddingHorizontal: 4 },
   infoText: { fontSize: 12, fontWeight: '500' },
 });

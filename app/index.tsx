@@ -1,8 +1,19 @@
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, useColorScheme } from "react-native";
+import React, { useCallback, useRef, useState } from "react";
+import {
+  Animated,
+  LayoutChangeEvent,
+  Modal,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+  useColorScheme
+} from "react-native";
 import { requestWidgetUpdate } from 'react-native-android-widget';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Footer from './footer';
@@ -15,17 +26,16 @@ interface Task {
   title: string;
   description: string;
   completed: boolean;
-  date: string; // Used as the Due Date for long-term tasks or task date
-  createdDate?: string; // Creation timestamp for checking start date
+  date: string;
+  createdDate?: string;
   type: 'daily' | 'long-term';
   recurring: boolean;
 }
 
-interface DateItem {
-  date: Date;
-  dateString: string; 
-  dayName: string;
-  dayNumber: number;
+interface GroupedTasks {
+  dateStr: string; // YYYY-MM-DD
+  dateObj: Date;
+  tasks: Task[];
 }
 
 // --- UTILS ---
@@ -41,30 +51,6 @@ const isDailyTaskValid = (taskDate: string) => {
   return taskCreation >= cutoff;
 };
 
-// Generates an array of dates: 1 month back to 1 month forward
-const generateDateRange = (): DateItem[] => {
-  const dates: DateItem[] = [];
-  const today = new Date();
-  
-  const start = new Date(today);
-  start.setMonth(start.getMonth() - 1);
-
-  const end = new Date(today);
-  end.setMonth(end.getMonth() + 1);
-
-  const current = new Date(start);
-  while (current <= end) {
-    dates.push({
-      date: new Date(current),
-      dateString: current.toISOString().split('T')[0],
-      dayName: current.toLocaleDateString('en-US', { weekday: 'short' }),
-      dayNumber: current.getDate(),
-    });
-    current.setDate(current.getDate() + 1);
-  }
-  return dates;
-};
-
 const isSameDay = (d1: Date, d2: Date) => {
   return (
     d1.getFullYear() === d2.getFullYear() &&
@@ -73,51 +59,83 @@ const isSameDay = (d1: Date, d2: Date) => {
   );
 };
 
-// Checks if targetDate is between startDate and endDate (at midnight granularity)
-const isDateInRange = (targetDate: Date, startDate: Date, endDate: Date) => {
-  const target = new Date(targetDate).setHours(0, 0, 0, 0);
-  const start = new Date(startDate).setHours(0, 0, 0, 0);
-  const end = new Date(endDate).setHours(23, 59, 59, 999);
+// Generates 35 days (5 weeks) for a month grid view
+const generateMonthGrid = (currentMonthDate: Date) => {
+  const year = currentMonthDate.getFullYear();
+  const month = currentMonthDate.getMonth();
 
-  return target >= start && target <= end;
+  const firstDayOfMonth = new Date(year, month, 1);
+  const startingDayOfWeek = firstDayOfMonth.getDay(); // 0 = Sun
+
+  const startDate = new Date(firstDayOfMonth);
+  startDate.setDate(startDate.getDate() - startingDayOfWeek);
+
+  const grid = [];
+  const curr = new Date(startDate);
+
+  for (let i = 0; i < 35; i++) {
+    grid.push(new Date(curr));
+    curr.setDate(curr.getDate() + 1);
+  }
+
+  return grid;
 };
 
-// --- COMPONENTS ---
-const AnimatedTaskCard = ({ item, onToggle, onDelete, isOverdue, theme }: any) => {
+const formatSectionHeaderDate = (date: Date) => {
+  const weekday = date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+  const dayNum = date.getDate();
+  return `${weekday} ${dayNum}`;
+};
+
+// --- REDESIGNED TASK ROW COMPONENT ---
+const AnimatedTaskCard = ({ item, onToggle, onDelete, theme }: any) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 0.98, useNativeDriver: true }).start();
   const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
 
   const itemDate = new Date(item.date);
-  const taskDateLabel = itemDate.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const timeFormatted = itemDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  const isDaily = item.type === 'daily';
 
   return (
-    <Animated.View style={[styles.item, { backgroundColor: theme.card, borderColor: theme.border, transform: [{ scale: scaleAnim }] }]}>
-      <View style={styles.row}>
-        <Pressable 
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          onPress={() => onToggle(item.id)} 
-          style={[styles.checkbox, { borderColor: item.completed ? theme.success : theme.border }, item.completed && { backgroundColor: theme.success }]}
-        >
-          {item.completed && <FontAwesome5 name="check" size={12} color="white" />}
-        </Pressable>
-
-        <View style={styles.textContainer}>
-          <View style={styles.titleRow}>
-             <Text style={[styles.largeText, { color: theme.title }, item.completed && styles.textCrossed]}>{item.title}</Text>
-          </View>
-          {item.description && <Text style={[styles.smallText, { color: theme.subtext }]}>{item.description}</Text>}
-          <Text style={[styles.dateLabel, { color: isOverdue && !item.completed ? theme.delete : theme.subtext }]}>
-            {item.type === 'daily' ? (item.recurring ? 'Daily Recurring' : 'Daily Goal') : `Due: ${taskDateLabel}`}
+    <Animated.View style={[styles.itemRow, { transform: [{ scale: scaleAnim }] }]}>
+      {/* TIME COLUMN */}
+      <View style={styles.timeColumn}>
+        <Text style={[styles.timeText, { color: theme.subtext }]}>
+          {isDaily ? 'All day' : timeFormatted}
+        </Text>
+        {!isDaily && (
+          <Text style={[styles.timeTextSub, { color: theme.subtext }]}>
+            {item.recurring ? 'Daily' : 'Due'}
           </Text>
-        </View>
-
-        <Pressable onPress={() => onDelete(item.id)} style={styles.deleteBtn}>
-          <FontAwesome5 name="trash" size={16} color={theme.icon} />
-        </Pressable>
+        )}
       </View>
+
+      {/* COLOR ACCENT DOT */}
+      <View style={[styles.dot, { backgroundColor: theme.background }]} />
+
+      {/* TASK CONTENT */}
+      <Pressable 
+        style={styles.textContainer}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={() => onToggle(item.id)}
+      >
+        <Text style={[styles.taskTitle, { color: theme.title }, item.completed && styles.textCrossed]}>
+          {item.title}
+        </Text>
+        {item.description ? (
+          <Text style={[styles.taskSub, { color: theme.subtext }]} numberOfLines={1}>
+            {item.description}
+          </Text>
+        ) : null}
+      </Pressable>
+
+      {/* DELETE BUTTON */}
+      <Pressable onPress={() => onDelete(item.id)} style={styles.deleteBtn}>
+        <FontAwesome5 name="trash-alt" size={13} color={theme.subtext} />
+      </Pressable>
     </Animated.View>
   );
 };
@@ -126,28 +144,28 @@ const AnimatedTaskCard = ({ item, onToggle, onDelete, isOverdue, theme }: any) =
 export default function Index() {
   const [data, setData] = useState<Task[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [dateList, setDateList] = useState<DateItem[]>([]);
+  const [viewDate, setViewDate] = useState<Date>(new Date());
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  
-  const dateStripRef = useRef<ScrollView>(null);
+
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
   const router = useRouter();
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const sectionYPositions = useRef<{ [key: string]: number }>({});
+  const hasAutoScrolled = useRef(false);
+
   const KEY = 'dbKey';
   const HISTORY_KEY = 'historyKey';
 
-  useEffect(() => {
-    const dates = generateDateRange();
-    setDateList(dates);
+  const monthGrid = generateMonthGrid(viewDate);
 
-    const todayIndex = dates.findIndex(d => isSameDay(d.date, new Date()));
-    if (todayIndex !== -1) {
-      setTimeout(() => {
-        dateStripRef.current?.scrollTo({ x: todayIndex * 62 - 150, animated: true });
-      }, 300);
-    }
-  }, []);
+  const changeMonth = (increment: number) => {
+    const newDate = new Date(viewDate);
+    newDate.setMonth(newDate.getMonth() + increment);
+    setViewDate(newDate);
+  };
 
   const updateHistoryEntry = async (task: Task, action: 'update' | 'delete') => {
     try {
@@ -234,117 +252,194 @@ export default function Index() {
     updateWidget(newArray);
   };
 
-  // Filter tasks based on selected date
-  const visibleTasks = data.filter(task => {
-    const taskDueDate = new Date(task.date);
+  // Group all tasks by date in chronological order
+  const getGroupedTasks = (): GroupedTasks[] => {
+    const groupsMap: { [key: string]: { dateObj: Date; tasks: Task[] } } = {};
 
-    if (task.type === 'daily') {
-      if (task.recurring) return true;
-      return isSameDay(taskDueDate, selectedDate);
+    data.forEach(task => {
+      const taskDate = new Date(task.date);
+      const dateKey = taskDate.toISOString().split('T')[0];
+
+      if (!groupsMap[dateKey]) {
+        groupsMap[dateKey] = { dateObj: taskDate, tasks: [] };
+      }
+      groupsMap[dateKey].tasks.push(task);
+    });
+
+    return Object.keys(groupsMap)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+      .map(key => ({
+        dateStr: key,
+        dateObj: groupsMap[key].dateObj,
+        tasks: groupsMap[key].tasks,
+      }));
+  };
+
+  const groupedTasks = getGroupedTasks();
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const handleSectionLayout = (dateStr: string, event: LayoutChangeEvent) => {
+    const y = event.nativeEvent.layout.y;
+    sectionYPositions.current[dateStr] = y;
+
+    if (!hasAutoScrolled.current && groupedTasks.length > 0) {
+      const targetGroup = groupedTasks.find(g => g.dateStr >= todayStr) || groupedTasks[0];
+      if (targetGroup && sectionYPositions.current[targetGroup.dateStr] !== undefined) {
+        hasAutoScrolled.current = true;
+        setTimeout(() => {
+          scrollViewRef.current?.scrollTo({
+            y: sectionYPositions.current[targetGroup.dateStr],
+            animated: true,
+          });
+        }, 100);
+      }
     }
+  };
 
-    if (task.type === 'long-term') {
-      // Show long-term tasks across all days between creation date and due date
-      const creationDate = task.createdDate ? new Date(task.createdDate) : taskDueDate;
-      return isDateInRange(selectedDate, creationDate, taskDueDate);
+  const scrollToDateSection = (dateItem: Date) => {
+    const matchingGroup = groupedTasks.find(g => isSameDay(g.dateObj, dateItem));
+    
+    if (matchingGroup && sectionYPositions.current[matchingGroup.dateStr] !== undefined) {
+      scrollViewRef.current?.scrollTo({
+        y: sectionYPositions.current[matchingGroup.dateStr],
+        animated: true,
+      });
+    } else {
+      const selectedTime = dateItem.getTime();
+      const nextGroup = groupedTasks.find(g => g.dateObj.getTime() >= selectedTime);
+      
+      if (nextGroup && sectionYPositions.current[nextGroup.dateStr] !== undefined) {
+        scrollViewRef.current?.scrollTo({
+          y: sectionYPositions.current[nextGroup.dateStr],
+          animated: true,
+        });
+      }
     }
+  };
 
-    return false;
-  });
-
-  const dailyTasks = visibleTasks.filter(t => t.type === 'daily');
-  const longTermTasks = visibleTasks.filter(t => t.type === 'long-term');
+  const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle={colorScheme === 'dark' ? "light-content" : "dark-content"} />
-      
-      {/* HEADER */}
-      <View style={styles.header}>
-        <View>
-          <Text style={[styles.headerSubtitle, { color: theme.subtext }]}>
-            {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </Text>
-          <Text style={[styles.headerTitle, { color: theme.title }]}>My Tasks</Text>
-        </View>
 
-        <View style={styles.headerActions}>
-          <Pressable style={[styles.addBtn, { backgroundColor: theme.accent }]} onPress={() => router.push('/addtask')}>
-            <FontAwesome5 name="plus" size={18} color="white" />
+      {/* TOP CALENDAR SECTION */}
+      <View style={styles.calendarSection}>
+        {/* HEADER */}
+        <View style={styles.header}>
+          <Text style={[styles.mainTitle, { color: theme.title }]}>
+            My Tasks
+          </Text>
+
+          <Pressable style={styles.addBtnBlue} onPress={() => router.push('/addtask')}>
+            <FontAwesome5 name="plus" size={14} color="white" />
           </Pressable>
         </View>
-      </View>
 
-      {/* HORIZONTAL DATE STRIP */}
-      <View style={styles.dateStripContainer}>
-        <ScrollView 
-          ref={dateStripRef}
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.dateStripContent}
-        >
-          {dateList.map((item, index) => {
-            const isSelected = isSameDay(item.date, selectedDate);
+        {/* MONTH & YEAR HEADER WITH NAVIGATION */}
+        <View style={styles.monthHeader}>
+          <Text style={[styles.monthTitle, { color: theme.title }]}>
+            {viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </Text>
+          <View style={styles.monthNavBtns}>
+            <Pressable onPress={() => changeMonth(-1)} style={styles.arrowBtn}>
+              <FontAwesome5 name="chevron-left" size={12} color={theme.subtext} />
+            </Pressable>
+            <Pressable onPress={() => changeMonth(1)} style={styles.arrowBtn}>
+              <FontAwesome5 name="chevron-right" size={12} color={theme.subtext} />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* WEEKDAYS HEADER */}
+        <View style={styles.weekRow}>
+          {daysOfWeek.map((day, index) => (
+            <Text key={index} style={[styles.weekDayText, { color: theme.subtext }]}>{day}</Text>
+          ))}
+        </View>
+
+        {/* CALENDAR DAYS GRID */}
+        <View style={styles.grid}>
+          {monthGrid.map((dateItem, idx) => {
+            const isCurrentMonth = dateItem.getMonth() === viewDate.getMonth();
+            const isSelected = isSameDay(dateItem, selectedDate);
+            const isToday = isSameDay(dateItem, new Date());
 
             return (
               <Pressable
-                key={index}
-                onPress={() => setSelectedDate(item.date)}
-                style={[
-                  styles.dateCard,
-                  { backgroundColor: theme.card, borderColor: theme.border },
-                  isSelected && { backgroundColor: theme.accent, borderColor: theme.accent },
-                ]}
+                key={idx}
+                onPress={() => {
+                  setSelectedDate(dateItem);
+                  if (dateItem.getMonth() !== viewDate.getMonth()) {
+                    setViewDate(dateItem);
+                  }
+                  scrollToDateSection(dateItem);
+                }}
+                style={styles.dayCell}
               >
-                <Text style={[
-                  styles.dateDayName, 
-                  { color: theme.subtext },
-                  isSelected && { color: 'white', fontWeight: '700' }
+                <View style={[
+                  styles.dayNumContainer,
+                  isSelected && styles.selectedDayCircle,
+                  isToday && !isSelected && styles.todayOutlineCircle
                 ]}>
-                  {item.dayName}
-                </Text>
-                <Text style={[
-                  styles.dateDayNum, 
-                  { color: theme.title },
-                  isSelected && { color: 'white' }
-                ]}>
-                  {item.dayNumber}
-                </Text>
+                  <Text style={[
+                    styles.dayNumText,
+                    { color: isCurrentMonth ? theme.title : '#C5C5C5' },
+                    isSelected && { color: theme.title, fontWeight: '700' }
+                  ]}>
+                    {dateItem.getDate()}
+                  </Text>
+                </View>
               </Pressable>
             );
           })}
+        </View>
+      </View>
+
+      {/* CHRONOLOGICAL MULTI-DAY TASKS LIST CONTAINER */}
+      <View style={[styles.taskContainer, { backgroundColor: theme.background }]}>
+        <ScrollView 
+          ref={scrollViewRef}
+          showsVerticalScrollIndicator={false} 
+          contentContainerStyle={{ paddingBottom: 110 }}
+        >
+          {groupedTasks.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <FontAwesome5 name="calendar-check" size={36} color={theme.border} />
+              <Text style={[styles.emptyText, { color: theme.subtext }]}>No tasks scheduled</Text>
+            </View>
+          ) : (
+            groupedTasks.map(group => (
+              <View 
+                key={group.dateStr}
+                onLayout={(e) => handleSectionLayout(group.dateStr, e)}
+                style={styles.dateSection}
+              >
+                {/* REDESIGNED HEADER: DAY/DATE WITH DIVIDER LINE */}
+                <View style={styles.sheetHeader}>
+                  <Text style={[styles.sheetTitle, { color: theme.subtext }]}>
+                    {formatSectionHeaderDate(group.dateObj)}
+                  </Text>
+                  <View style={[styles.headerDivider, { backgroundColor: theme.border }]} />
+                </View>
+
+                {/* REDESIGNED TASK LIST */}
+                {group.tasks.map(item => (
+                  <AnimatedTaskCard
+                    key={item.id}
+                    item={item}
+                    theme={theme}
+                    onToggle={toggleComplete}
+                    onDelete={(id: string) => { setDeleteId(id); setDeleteModalVisible(true); }}
+                  />
+                ))}
+              </View>
+            ))
+          )}
         </ScrollView>
       </View>
 
-      {/* TASK LIST */}
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-        {visibleTasks.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <FontAwesome5 name="feather" size={50} color={theme.border} />
-            <Text style={[styles.emptyText, { color: theme.subtext }]}>No tasks scheduled for this day.</Text>
-          </View>
-        ) : (
-          <>
-            {dailyTasks.length > 0 && (
-              <>
-                <Text style={[styles.sectionTitle, { color: theme.accent }]}>Daily Goals</Text>
-                {dailyTasks.map(item => (
-                  <AnimatedTaskCard key={item.id} item={item} theme={theme} onToggle={toggleComplete} onDelete={(id: string) => { setDeleteId(id); setDeleteModalVisible(true); }} />
-                ))}
-              </>
-            )}
-            {longTermTasks.length > 0 && (
-              <>
-                <Text style={[styles.sectionTitle, { color: theme.accent, marginTop: 20 }]}>Long Term</Text>
-                {longTermTasks.map(item => (
-                  <AnimatedTaskCard key={item.id} item={item} theme={theme} onToggle={toggleComplete} isOverdue={!item.completed && new Date(item.date) < new Date()} onDelete={(id: string) => { setDeleteId(id); setDeleteModalVisible(true); }} />
-                ))}
-              </>
-            )}
-          </>
-        )}
-      </ScrollView>
-
+      {/* FOOTER */}
       <Footer />
 
       {/* DELETE MODAL */}
@@ -352,7 +447,7 @@ export default function Index() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <Text style={[styles.modalTitle, { color: theme.title }]}>Delete Task</Text>
-            <Text style={[styles.modalSub, { color: theme.subtext }]}>Remove this from today and your history log?</Text>
+            <Text style={[styles.modalSub, { color: theme.subtext }]}>Remove this task permanently?</Text>
             <View style={styles.modalActions}>
               <Pressable style={styles.modalBtn} onPress={() => setDeleteModalVisible(false)}>
                 <Text style={{ color: theme.subtext, fontWeight: '600' }}>Cancel</Text>
@@ -370,44 +465,142 @@ export default function Index() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 25, paddingTop: 15, paddingBottom: 10 },
-  headerSubtitle: { fontSize: 14, fontWeight: '500', marginBottom: 4 },
-  headerTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
-  headerActions: { flexDirection: 'row', alignItems: 'center' },
   
-  dateStripContainer: { marginBottom: 15 },
-  dateStripContent: { paddingHorizontal: 20, gap: 10 },
-  dateCard: {
-    width: 52,
-    height: 68,
-    borderRadius: 16,
-    borderWidth: 1,
-    justifyContent: 'center',
+  // Header / Calendar Section
+  calendarSection: { paddingHorizontal: 22, paddingTop: 10, paddingBottom: 10 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  mainTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
+  addBtnBlue: { 
+    width: 36, 
+    height: 36, 
+    borderRadius: 18, 
+    backgroundColor: '#3A86FF', 
+    justifyContent: 'center', 
     alignItems: 'center',
-    paddingVertical: 8,
+    shadowColor: '#3A86FF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  dateDayName: { fontSize: 12, fontWeight: '500', marginBottom: 4 },
-  dateDayNum: { fontSize: 18, fontWeight: '700' },
 
-  sectionTitle: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, marginLeft: 5 },
-  addBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
-  scroll: { flex: 1, paddingHorizontal: 20 },
-  item: { padding: 16, borderRadius: 20, marginBottom: 12, borderWidth: 1 },
-  row: { flexDirection: 'row', alignItems: 'center' },
-  checkbox: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, marginRight: 15, justifyContent: 'center', alignItems: 'center' },
-  textContainer: { flex: 1 },
-  titleRow: { flexDirection: 'row', alignItems: 'center' },
-  largeText: { fontSize: 16, fontWeight: '600' },
-  smallText: { fontSize: 13, marginTop: 2 },
-  dateLabel: { fontSize: 11, fontWeight: '600', marginTop: 6 },
-  textCrossed: { textDecorationLine: 'line-through', opacity: 0.4 },
-  deleteBtn: { padding: 8 },
-  emptyContainer: { alignItems: 'center', marginTop: 80 },
-  emptyText: { marginTop: 15, fontSize: 16, fontWeight: '500' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: '85%', padding: 25, borderRadius: 30, alignItems: 'center' },
-  modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 10 },
-  modalSub: { textAlign: 'center', marginBottom: 25 },
-  modalActions: { flexDirection: 'row', gap: 15 },
-  modalBtn: { flex: 1, padding: 15, borderRadius: 15, alignItems: 'center' },
+  // Month Header Bar
+  monthHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  monthTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  monthNavBtns: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  arrowBtn: {
+    padding: 6,
+    borderRadius: 6,
+  },
+
+  // Week Grid
+  weekRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  weekDayText: { width: '14.28%', textAlign: 'center', fontSize: 12, fontWeight: '600' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  dayCell: { width: '14.28%', height: 38, justifyContent: 'center', alignItems: 'center' },
+  dayNumContainer: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  selectedDayCircle: { borderBottomWidth: 2, borderColor: '#3A86FF', backgroundColor: 'rgba(58, 134, 255, 0.08)' },
+  todayOutlineCircle: { borderWidth: 1, borderColor: '#A0A0A0' },
+  dayNumText: { fontSize: 13, fontWeight: '500' },
+
+  // Task Main Container
+  taskContainer: {
+    flex: 1,
+    paddingHorizontal: 22,
+    paddingTop: 15,
+  },
+  dateSection: { marginBottom: 28 },
+  
+  // Section Header Styles
+  sheetHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 16 
+  },
+  sheetTitle: { 
+    fontSize: 12, 
+    fontWeight: '700', 
+    letterSpacing: 0.8,
+    marginRight: 12,
+  },
+  headerDivider: { 
+    flex: 1, 
+    height: 1, 
+    opacity: 0.5 
+  },
+
+  // Task Row Styles
+  itemRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 16 
+  },
+  timeColumn: { 
+    width: 52,
+  },
+  timeText: { 
+    fontSize: 12, 
+    fontWeight: '500', 
+    lineHeight: 15, 
+    opacity: 0.7 
+  },
+  timeTextSub: { 
+    fontSize: 12, 
+    fontWeight: '400', 
+    lineHeight: 15, 
+    opacity: 0.5 
+  },
+  dot: { 
+    width: 7, 
+    height: 7, 
+    borderRadius: 3.5, 
+    marginHorizontal: 12 
+  },
+  textContainer: { 
+    flex: 1, 
+    paddingRight: 8 
+  },
+  taskTitle: { 
+    fontSize: 14, 
+    fontWeight: '700', 
+    letterSpacing: -0.2 
+  },
+  taskSub: { 
+    fontSize: 12, 
+    marginTop: 2, 
+    opacity: 0.6 
+  },
+  textCrossed: { 
+    textDecorationLine: 'line-through', 
+    opacity: 0.4 
+  },
+  deleteBtn: { 
+    paddingLeft: 10,
+    paddingVertical: 6,
+  },
+
+  // Empty State
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingTop: 40 },
+  emptyText: { marginTop: 10, fontSize: 14, fontWeight: '500' },
+
+  // Delete Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { width: '80%', padding: 22, borderRadius: 24, alignItems: 'center' },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  modalSub: { textAlign: 'center', marginBottom: 20, fontSize: 13 },
+  modalActions: { flexDirection: 'row', gap: 12 },
+  modalBtn: { flex: 1, padding: 12, borderRadius: 12, alignItems: 'center' },
 });

@@ -43,6 +43,7 @@ export function MyWidget({ task, date }: WidgetProp) {
 
             {task.map((item, index) => {
                 const isOverdue = new Date(item.date) < now;
+                const title = item.title+" - "+item.date
                 
                 return (
                         <FlexWidget
@@ -71,7 +72,7 @@ export function MyWidget({ task, date }: WidgetProp) {
                                         fontWeight: 'bold', 
                                         color: '#fff' 
                                     }} 
-                                    text={item.title} 
+                                    text={title}
                                 />
                             </FlexWidget>
                         </FlexWidget>
