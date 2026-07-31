@@ -43,7 +43,7 @@ export function MyWidget({ task, date }: WidgetProp) {
 
             {task.map((item, index) => {
                 const isOverdue = new Date(item.date) < now;
-                const title = item.title+" - "+item.date
+                const title = item.date.split('T')[0].slice(5)+" - "+item.title
                 
                 return (
                         <FlexWidget

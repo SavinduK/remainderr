@@ -112,9 +112,6 @@ const AnimatedTaskCard = ({ item, onToggle, onDelete, theme }: any) => {
         )}
       </View>
 
-      {/* COLOR ACCENT DOT */}
-      <View style={[styles.dot, { backgroundColor: theme.background }]} />
-
       {/* TASK CONTENT */}
       <Pressable 
         style={styles.textContainer}
@@ -134,7 +131,7 @@ const AnimatedTaskCard = ({ item, onToggle, onDelete, theme }: any) => {
 
       {/* DELETE BUTTON */}
       <Pressable onPress={() => onDelete(item.id)} style={styles.deleteBtn}>
-        <FontAwesome5 name="trash-alt" size={13} color={theme.subtext} />
+        <FontAwesome5 name="trash-alt" size={13} color="#c85555" />
       </Pressable>
     </Animated.View>
   );
@@ -244,12 +241,37 @@ export default function Index() {
   const deleteItem = async () => {
     const taskToDelete = data.find(t => t.id === deleteId);
     if (taskToDelete?.type === 'daily') await updateHistoryEntry(taskToDelete, 'delete');
-
-    const newArray = data.filter(item => item.id !== deleteId);
+    const newArray = data.filter(item => item.id !== deleteId).sort((a:any, b:any) => new Date(a).getTime() - new Date(b).getTime());
     setData(newArray);
     await AsyncStorage.setItem(KEY, JSON.stringify(newArray));
     setDeleteModalVisible(false);
     updateWidget(newArray);
+  };
+
+  // Helper to determine the text color of a calendar date based on task status
+  const getDayTaskTextColor = (date: Date, isCurrentMonth: boolean) => {
+    const dayTasks = data.filter(t => isSameDay(new Date(t.date), date));
+    
+    // If no tasks exist for this day, return standard month / muted text color
+    if (dayTasks.length === 0) {
+      return isCurrentMonth ? theme.text : '#C5C5C5';
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+
+    const hasLate = dayTasks.some(t => !t.completed && checkDate < today);
+    if (hasLate) return '#FF4D4D'; // Red for late tasks
+
+    const hasPending = dayTasks.some(t => !t.completed && checkDate >= today);
+    if (hasPending) return '#3A86FF'; // Blue for upcoming/pending tasks
+
+    const allCompleted = dayTasks.length > 0 && dayTasks.every(t => t.completed);
+    if (allCompleted) return '#2ECC71'; // Green for all completed tasks
+
+    return isCurrentMonth ? theme.subtext : '#C5C5C5';
   };
 
   // Group all tasks by date in chronological order
@@ -338,7 +360,7 @@ export default function Index() {
 
         {/* MONTH & YEAR HEADER WITH NAVIGATION */}
         <View style={styles.monthHeader}>
-          <Text style={[styles.monthTitle, { color: theme.title }]}>
+          <Text style={[styles.monthTitle, { color: theme.subtext }]}>
             {viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </Text>
           <View style={styles.monthNavBtns}>
@@ -364,6 +386,7 @@ export default function Index() {
             const isCurrentMonth = dateItem.getMonth() === viewDate.getMonth();
             const isSelected = isSameDay(dateItem, selectedDate);
             const isToday = isSameDay(dateItem, new Date());
+            const dateTextColor = getDayTaskTextColor(dateItem, isCurrentMonth);
 
             return (
               <Pressable
@@ -384,8 +407,8 @@ export default function Index() {
                 ]}>
                   <Text style={[
                     styles.dayNumText,
-                    { color: isCurrentMonth ? theme.title : '#C5C5C5' },
-                    isSelected && { color: theme.title, fontWeight: '700' }
+                    { color: dateTextColor },
+                    isSelected && { fontWeight: '800' }
                   ]}>
                     {dateItem.getDate()}
                   </Text>
@@ -417,7 +440,7 @@ export default function Index() {
               >
                 {/* REDESIGNED HEADER: DAY/DATE WITH DIVIDER LINE */}
                 <View style={styles.sheetHeader}>
-                  <Text style={[styles.sheetTitle, { color: theme.subtext }]}>
+                  <Text style={[styles.sheetTitle, { color: theme.accent }]}>
                     {formatSectionHeaderDate(group.dateObj)}
                   </Text>
                   <View style={[styles.headerDivider, { backgroundColor: theme.border }]} />
@@ -514,7 +537,7 @@ const styles = StyleSheet.create({
   dayNumContainer: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
   selectedDayCircle: { borderBottomWidth: 2, borderColor: '#3A86FF', backgroundColor: 'rgba(58, 134, 255, 0.08)' },
   todayOutlineCircle: { borderWidth: 1, borderColor: '#A0A0A0' },
-  dayNumText: { fontSize: 13, fontWeight: '500' },
+  dayNumText: { fontSize: 13, fontWeight: '700' },
 
   // Task Main Container
   taskContainer: {
@@ -531,7 +554,7 @@ const styles = StyleSheet.create({
     marginBottom: 16 
   },
   sheetTitle: { 
-    fontSize: 12, 
+    fontSize: 14, 
     fontWeight: '700', 
     letterSpacing: 0.8,
     marginRight: 12,
@@ -549,7 +572,7 @@ const styles = StyleSheet.create({
     marginBottom: 16 
   },
   timeColumn: { 
-    width: 52,
+    width: 64,
   },
   timeText: { 
     fontSize: 12, 
@@ -562,12 +585,6 @@ const styles = StyleSheet.create({
     fontWeight: '400', 
     lineHeight: 15, 
     opacity: 0.5 
-  },
-  dot: { 
-    width: 7, 
-    height: 7, 
-    borderRadius: 3.5, 
-    marginHorizontal: 12 
   },
   textContainer: { 
     flex: 1, 
