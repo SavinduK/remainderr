@@ -20,16 +20,16 @@ import Footer from './footer';
 import { Colors } from './theme';
 import { MyWidget } from './widget';
 
-// --- TYPES ---
+// --- UPDATED TYPES ---
 interface Task {
   id: string;
   title: string;
   description: string;
   completed: boolean;
   date: string;
+  startTime?: string;
+  endTime?: string;
   createdDate?: string;
-  type: 'daily' | 'long-term';
-  recurring: boolean;
 }
 
 interface GroupedTasks {
@@ -39,18 +39,6 @@ interface GroupedTasks {
 }
 
 // --- UTILS ---
-const isDailyTaskValid = (taskDate: string) => {
-  const now = new Date();
-  const taskCreation = new Date(taskDate);
-  const cutoff = new Date();
-  cutoff.setHours(6, 0, 0, 0);
-
-  if (now.getHours() < 6) {
-    cutoff.setDate(cutoff.getDate() - 1);
-  }
-  return taskCreation >= cutoff;
-};
-
 const isSameDay = (d1: Date, d2: Date) => {
   return (
     d1.getFullYear() === d2.getFullYear() &&
@@ -59,13 +47,12 @@ const isSameDay = (d1: Date, d2: Date) => {
   );
 };
 
-// Generates 35 days (5 weeks) for a month grid view
 const generateMonthGrid = (currentMonthDate: Date) => {
   const year = currentMonthDate.getFullYear();
   const month = currentMonthDate.getMonth();
 
   const firstDayOfMonth = new Date(year, month, 1);
-  const startingDayOfWeek = firstDayOfMonth.getDay(); // 0 = Sun
+  const startingDayOfWeek = firstDayOfMonth.getDay();
 
   const startDate = new Date(firstDayOfMonth);
   startDate.setDate(startDate.getDate() - startingDayOfWeek);
@@ -87,28 +74,43 @@ const formatSectionHeaderDate = (date: Date) => {
   return `${weekday} ${dayNum}`;
 };
 
-// --- REDESIGNED TASK ROW COMPONENT ---
-const AnimatedTaskCard = ({ item, onToggle, onDelete, theme }: any) => {
+const formatTimeStr = (isoString?: string) => {
+  if (!isoString) return null;
+  const d = new Date(isoString);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+};
+
+// --- REDESIGNED TASK CARD COMPONENT ---
+const AnimatedTaskCard = ({ item, onToggle, onDelete, theme }: { item: Task; onToggle: (id: string) => void; onDelete: (id: string) => void; theme: any }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 0.98, useNativeDriver: true }).start();
   const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
 
-  const itemDate = new Date(item.date);
-  const timeFormatted = itemDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-  const isDaily = item.type === 'daily';
+  const startFormatted = formatTimeStr(item.startTime);
+  const endFormatted = formatTimeStr(item.endTime);
 
   return (
     <Animated.View style={[styles.itemRow, { transform: [{ scale: scaleAnim }] }]}>
-      {/* TIME COLUMN */}
+      {/* TIME COLUMN (STACKED LAYOUT) */}
       <View style={styles.timeColumn}>
-        <Text style={[styles.timeText, { color: theme.subtext }]}>
-          {isDaily ? 'All day' : timeFormatted}
-        </Text>
-        {!isDaily && (
-          <Text style={[styles.timeTextSub, { color: theme.subtext }]}>
-            {item.recurring ? 'Daily' : 'Due'}
-          </Text>
+        {startFormatted && endFormatted ? (
+          <>
+            <Text style={[styles.timeText, { color: theme.subtext }]}>{startFormatted}</Text>
+            <Text style={[styles.timeText, { color: theme.subtext }]}>{endFormatted}</Text>
+          </>
+        ) : startFormatted ? (
+          <>
+            <Text style={[styles.timeText, { color: theme.title }]}>{startFormatted}</Text>
+            <Text style={[styles.timeText, { color: theme.subtext }]}>Start</Text>
+          </>
+        ) : endFormatted ? (
+          <>
+            <Text style={[styles.timeText, { color: theme.subtext }]}>Ends</Text>
+            <Text style={[styles.timeText, { color: theme.title }]}>{endFormatted}</Text>
+          </>
+        ) : (
+          <Text style={[styles.timeText, { color: theme.subtext }]}>All day</Text>
         )}
       </View>
 
@@ -123,7 +125,7 @@ const AnimatedTaskCard = ({ item, onToggle, onDelete, theme }: any) => {
           {item.title}
         </Text>
         {item.description ? (
-          <Text style={[styles.taskSub, { color: theme.subtext }]} numberOfLines={1}>
+          <Text style={[styles.taskSub, { color: theme.subtext }]} numberOfLines={2}>
             {item.description}
           </Text>
         ) : null}
@@ -154,7 +156,6 @@ export default function Index() {
   const hasAutoScrolled = useRef(false);
 
   const KEY = 'dbKey';
-  const HISTORY_KEY = 'historyKey';
 
   const monthGrid = generateMonthGrid(viewDate);
 
@@ -164,50 +165,12 @@ export default function Index() {
     setViewDate(newDate);
   };
 
-  const updateHistoryEntry = async (task: Task, action: 'update' | 'delete') => {
-    try {
-      const historyData = await AsyncStorage.getItem(HISTORY_KEY);
-      let history = historyData ? JSON.parse(historyData) : {};
-      const dateKey = new Date(task.date).toISOString().split('T')[0];
-
-      if (!history[dateKey]) history[dateKey] = { completed: [], incomplete: [] };
-
-      history[dateKey].completed = history[dateKey].completed.filter((t: string) => t !== task.title);
-      history[dateKey].incomplete = history[dateKey].incomplete.filter((t: string) => t !== task.title);
-
-      if (action === 'update') {
-        if (task.completed) history[dateKey].completed.push(task.title);
-        else history[dateKey].incomplete.push(task.title);
-      }
-
-      await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-    } catch (e) { console.error(e); }
-  };
-
   const reloadItems = async () => {
     const jsonData = await AsyncStorage.getItem(KEY);
     if (jsonData) {
       const parsed: Task[] = JSON.parse(jsonData);
-      let hasChanges = false;
-
-      const processedTasks = parsed.map(task => {
-        if (task.type === 'daily' && !isDailyTaskValid(task.date)) {
-          if (task.recurring) {
-            hasChanges = true;
-            return { ...task, completed: false, date: new Date().toISOString() };
-          }
-          hasChanges = true;
-          return null;
-        }
-        return task;
-      }).filter((t): t is Task => t !== null);
-
-      if (hasChanges) {
-        await AsyncStorage.setItem(KEY, JSON.stringify(processedTasks));
-      }
-
-      setData(processedTasks);
-      updateWidget(processedTasks);
+      setData(parsed);
+      updateWidget(parsed);
     }
   };
 
@@ -227,9 +190,7 @@ export default function Index() {
   const toggleComplete = async (id: string) => {
     const newArray = data.map(item => {
       if (item.id === id) {
-        const updated = { ...item, completed: !item.completed };
-        if (item.type === 'daily') updateHistoryEntry(updated, 'update');
-        return updated;
+        return { ...item, completed: !item.completed };
       }
       return item;
     });
@@ -239,20 +200,18 @@ export default function Index() {
   };
 
   const deleteItem = async () => {
-    const taskToDelete = data.find(t => t.id === deleteId);
-    if (taskToDelete?.type === 'daily') await updateHistoryEntry(taskToDelete, 'delete');
-    const newArray = data.filter(item => item.id !== deleteId).sort((a:any, b:any) => new Date(a).getTime() - new Date(b).getTime());
+    if (!deleteId) return;
+    const newArray = data.filter(item => item.id !== deleteId);
     setData(newArray);
     await AsyncStorage.setItem(KEY, JSON.stringify(newArray));
     setDeleteModalVisible(false);
+    setDeleteId(null);
     updateWidget(newArray);
   };
 
-  // Helper to determine the text color of a calendar date based on task status
   const getDayTaskTextColor = (date: Date, isCurrentMonth: boolean) => {
     const dayTasks = data.filter(t => isSameDay(new Date(t.date), date));
     
-    // If no tasks exist for this day, return standard month / muted text color
     if (dayTasks.length === 0) {
       return isCurrentMonth ? theme.text : '#C5C5C5';
     }
@@ -263,18 +222,17 @@ export default function Index() {
     checkDate.setHours(0, 0, 0, 0);
 
     const hasLate = dayTasks.some(t => !t.completed && checkDate < today);
-    if (hasLate) return '#FF4D4D'; // Red for late tasks
+    if (hasLate) return '#FF4D4D';
 
     const hasPending = dayTasks.some(t => !t.completed && checkDate >= today);
-    if (hasPending) return '#3A86FF'; // Blue for upcoming/pending tasks
+    if (hasPending) return '#3A86FF';
 
     const allCompleted = dayTasks.length > 0 && dayTasks.every(t => t.completed);
-    if (allCompleted) return '#2ECC71'; // Green for all completed tasks
+    if (allCompleted) return '#2ECC71';
 
     return isCurrentMonth ? theme.subtext : '#C5C5C5';
   };
 
-  // Group all tasks by date in chronological order
   const getGroupedTasks = (): GroupedTasks[] => {
     const groupsMap: { [key: string]: { dateObj: Date; tasks: Task[] } } = {};
 
@@ -345,20 +303,17 @@ export default function Index() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle={colorScheme === 'dark' ? "light-content" : "dark-content"} />
 
-      {/* TOP CALENDAR SECTION */}
+      {/* CALENDAR SECTION */}
       <View style={styles.calendarSection}>
         {/* HEADER */}
         <View style={styles.header}>
-          <Text style={[styles.mainTitle, { color: theme.title }]}>
-            My Tasks
-          </Text>
-
+          <Text style={[styles.mainTitle, { color: theme.title }]}>My Tasks</Text>
           <Pressable style={styles.addBtnBlue} onPress={() => router.push('/addtask')}>
             <FontAwesome5 name="plus" size={14} color="white" />
           </Pressable>
         </View>
 
-        {/* MONTH & YEAR HEADER WITH NAVIGATION */}
+        {/* MONTH NAV */}
         <View style={styles.monthHeader}>
           <Text style={[styles.monthTitle, { color: theme.subtext }]}>
             {viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
@@ -373,14 +328,14 @@ export default function Index() {
           </View>
         </View>
 
-        {/* WEEKDAYS HEADER */}
+        {/* WEEKDAYS */}
         <View style={styles.weekRow}>
           {daysOfWeek.map((day, index) => (
             <Text key={index} style={[styles.weekDayText, { color: theme.subtext }]}>{day}</Text>
           ))}
         </View>
 
-        {/* CALENDAR DAYS GRID */}
+        {/* CALENDAR GRID */}
         <View style={styles.grid}>
           {monthGrid.map((dateItem, idx) => {
             const isCurrentMonth = dateItem.getMonth() === viewDate.getMonth();
@@ -419,7 +374,7 @@ export default function Index() {
         </View>
       </View>
 
-      {/* CHRONOLOGICAL MULTI-DAY TASKS LIST CONTAINER */}
+      {/* TASKS LIST */}
       <View style={[styles.taskContainer, { backgroundColor: theme.background }]}>
         <ScrollView 
           ref={scrollViewRef}
@@ -438,7 +393,6 @@ export default function Index() {
                 onLayout={(e) => handleSectionLayout(group.dateStr, e)}
                 style={styles.dateSection}
               >
-                {/* REDESIGNED HEADER: DAY/DATE WITH DIVIDER LINE */}
                 <View style={styles.sheetHeader}>
                   <Text style={[styles.sheetTitle, { color: theme.accent }]}>
                     {formatSectionHeaderDate(group.dateObj)}
@@ -446,7 +400,6 @@ export default function Index() {
                   <View style={[styles.headerDivider, { backgroundColor: theme.border }]} />
                 </View>
 
-                {/* REDESIGNED TASK LIST */}
                 {group.tasks.map(item => (
                   <AnimatedTaskCard
                     key={item.id}
@@ -462,7 +415,6 @@ export default function Index() {
         </ScrollView>
       </View>
 
-      {/* FOOTER */}
       <Footer />
 
       {/* DELETE MODAL */}
@@ -488,8 +440,6 @@ export default function Index() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  
-  // Header / Calendar Section
   calendarSection: { paddingHorizontal: 22, paddingTop: 10, paddingBottom: 10 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   mainTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
@@ -506,8 +456,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-
-  // Month Header Bar
   monthHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -515,21 +463,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     marginTop: 4,
   },
-  monthTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  monthNavBtns: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  arrowBtn: {
-    padding: 6,
-    borderRadius: 6,
-  },
-
-  // Week Grid
+  monthTitle: { fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },
+  monthNavBtns: { flexDirection: 'row', gap: 8 },
+  arrowBtn: { padding: 6, borderRadius: 6 },
   weekRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   weekDayText: { width: '14.28%', textAlign: 'center', fontSize: 12, fontWeight: '600' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -538,82 +474,21 @@ const styles = StyleSheet.create({
   selectedDayCircle: { borderBottomWidth: 2, borderColor: '#3A86FF', backgroundColor: 'rgba(58, 134, 255, 0.08)' },
   todayOutlineCircle: { borderWidth: 1, borderColor: '#A0A0A0' },
   dayNumText: { fontSize: 13, fontWeight: '700' },
-
-  // Task Main Container
-  taskContainer: {
-    flex: 1,
-    paddingHorizontal: 22,
-    paddingTop: 15,
-  },
-  dateSection: { marginBottom: 28 },
-  
-  // Section Header Styles
-  sheetHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    marginBottom: 16 
-  },
-  sheetTitle: { 
-    fontSize: 14, 
-    fontWeight: '700', 
-    letterSpacing: 0.8,
-    marginRight: 12,
-  },
-  headerDivider: { 
-    flex: 1, 
-    height: 1, 
-    opacity: 0.5 
-  },
-
-  // Task Row Styles
-  itemRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    marginBottom: 16 
-  },
-  timeColumn: { 
-    width: 64,
-  },
-  timeText: { 
-    fontSize: 12, 
-    fontWeight: '500', 
-    lineHeight: 15, 
-    opacity: 0.7 
-  },
-  timeTextSub: { 
-    fontSize: 12, 
-    fontWeight: '400', 
-    lineHeight: 15, 
-    opacity: 0.5 
-  },
-  textContainer: { 
-    flex: 1, 
-    paddingRight: 8 
-  },
-  taskTitle: { 
-    fontSize: 14, 
-    fontWeight: '700', 
-    letterSpacing: -0.2 
-  },
-  taskSub: { 
-    fontSize: 12, 
-    marginTop: 2, 
-    opacity: 0.6 
-  },
-  textCrossed: { 
-    textDecorationLine: 'line-through', 
-    opacity: 0.4 
-  },
-  deleteBtn: { 
-    paddingLeft: 10,
-    paddingVertical: 6,
-  },
-
-  // Empty State
+  taskContainer: { flex: 1, paddingHorizontal: 22, paddingTop: 15 },
+  dateSection: { marginBottom: 10 },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  sheetTitle: { fontSize: 14, fontWeight: '700', letterSpacing: 0.8, marginRight: 12 },
+  headerDivider: { flex: 1, height: 1, opacity: 0.5 },
+  itemRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 18 },
+  timeColumn: { width: 65, paddingRight: 10, justifyContent: 'center',alignItems: 'flex-start',},
+  timeText: { fontSize: 11, fontWeight: '700', lineHeight: 15,},
+  textContainer: { flex: 1, paddingRight: 8 },
+  taskTitle: { fontSize: 14, fontWeight: '700', letterSpacing: -0.2 },
+  taskSub: { fontSize: 12, marginTop: 3, opacity: 0.6 },
+  textCrossed: { textDecorationLine: 'line-through', opacity: 0.4 },
+  deleteBtn: { paddingLeft: 10, paddingVertical: 4 },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingTop: 40 },
   emptyText: { marginTop: 10, fontSize: 14, fontWeight: '500' },
-
-  // Delete Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '80%', padding: 22, borderRadius: 24, alignItems: 'center' },
   modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
