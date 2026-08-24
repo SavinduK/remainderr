@@ -3,18 +3,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    TextInput,
-    View,
-    useColorScheme
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  TextInput,
+  View,
+  useColorScheme
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from './theme';
+import { Colors } from '../theme';
 
 interface Note {
   id: string;
@@ -105,10 +105,10 @@ export default function AddNoteScreen() {
 
         <View style={styles.headerRight}>
           <Pressable onPress={() => setIsFavorite(!isFavorite)} style={{ marginRight: 20 }} hitSlop={10}>
-            <FontAwesome5 
-              name="bookmark" 
-              size={18} 
-              color={isFavorite ? theme.accent : theme.subtext} 
+            <FontAwesome5
+              name="bookmark"
+              size={18}
+              color={isFavorite ? theme.accent : theme.subtext}
               solid={isFavorite}
             />
           </Pressable>
@@ -118,7 +118,7 @@ export default function AddNoteScreen() {
         </View>
       </View>
 
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >

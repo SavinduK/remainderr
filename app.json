@@ -40,21 +40,26 @@
           }
         }
       ],
-      ["react-native-android-widget",{
-        "widgets": [
-          {
-            "name": "widget", // This name will be the **name** with which we will reference our widget.
-            "label": "My Widget", // Label shown in the widget picker
-            "minWidth": "120dp",
-            "minHeight": "40dp",
-            "targetCellWidth": 2,
-            "targetCellHeight": 1,
-            "description": "This is my first widget", // Description shown in the widget picker
-            "previewImage": "./assets/images/icon.png", // Path to widget preview image
-            "updatePeriodMillis": 1800000 ,  // Minimum is 1800000 (30 minutes == 30 * 60 * 1000).
-            "resizeMode" : "horizontal|vertical"
-    }]
-      }]
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "widget",
+              "label": "My Widget",
+              "minWidth": "120dp",
+              "minHeight": "40dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 1,
+              "description": "This is my first widget",
+              "previewImage": "./assets/images/icon.png",
+              "updatePeriodMillis": 1800000,
+              "resizeMode": "horizontal|vertical"
+            }
+          ]
+        }
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

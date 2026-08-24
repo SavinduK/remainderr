@@ -1,9 +1,11 @@
-import { FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
+import { Directory, File } from 'expo-file-system/next';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from "react";
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -11,12 +13,13 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
   useColorScheme
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Footer from './footer';
-import { Colors } from './theme';
+import Footer from '../footer';
+import { Colors } from '../theme';
 
 export interface Note {
   id: string;
@@ -35,7 +38,7 @@ const DEFAULT_CATEGORIES = ['Work', 'Personal', 'Ideas', 'To-Do'];
 export default function NotesScreen() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
-  
+
   // Navigation Tabs: 'all' | 'favorites' | 'categories'
   const [activeTab, setActiveTab] = useState<'all' | 'favorites' | 'categories'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -44,7 +47,7 @@ export default function NotesScreen() {
   // Category Edit State inside Modal
   const [isEditMode, setIsEditMode] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-  
+
   // Context Menu Modal State
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -54,6 +57,9 @@ export default function NotesScreen() {
 
   // Delete Note Modal State
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+
+  // Backup & Restore Modal State
+  const [backupModalVisible, setBackupModalVisible] = useState(false);
 
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'light'];
@@ -94,6 +100,89 @@ export default function NotesScreen() {
     await AsyncStorage.setItem(CATEGORIES_KEY, JSON.stringify(updatedCategories));
   };
 
+  // --- Backup & Restore Actions ---
+  const handleBackupData = async () => {
+    try {
+      const currentNotes = await AsyncStorage.getItem(NOTES_KEY);
+      const currentCategories = await AsyncStorage.getItem(CATEGORIES_KEY);
+
+      if (!currentNotes && !currentCategories) {
+        Alert.alert("Notice", "No data found to backup.");
+        return;
+      }
+
+      const backupDir = await Directory.pickDirectoryAsync();
+      if (!backupDir) return;
+
+      const targetDir = backupDir.createDirectory("Notes");
+
+      for (const item of targetDir.list()) {
+        await item.delete();
+      }
+
+      const notesFile = targetDir.createFile("notes.json", "application/json");
+      await notesFile.write(currentNotes || "[]");
+
+      const categoriesFile = targetDir.createFile("categories.json", "application/json");
+      await categoriesFile.write(currentCategories || JSON.stringify(DEFAULT_CATEGORIES));
+
+      //Alert.alert("Success", "Backup completed successfully!");
+    } catch (err) {
+      console.error("Backup error:", err);
+      //Alert.alert("Error", "Failed to complete backup.");
+    }
+  };
+
+  const restoreData = async () => {
+    try {
+      const backupDir = await Directory.pickDirectoryAsync();
+      if (!backupDir) return;
+
+      let notesRestored = false;
+      let categoriesRestored = false;
+
+      const filesToProcess = backupDir.list();
+
+      for (const item of filesToProcess) {
+        if (item instanceof Directory && item.name === "Notes") {
+          for (const appFile of item.list()) {
+            if (appFile instanceof File && appFile.name === "notes.json") {
+              const text = await appFile.text();
+              await AsyncStorage.setItem(NOTES_KEY, text);
+              notesRestored = true;
+            }
+            if (appFile instanceof File && appFile.name === "categories.json") {
+              const text = await appFile.text();
+              await AsyncStorage.setItem(CATEGORIES_KEY, text);
+              categoriesRestored = true;
+            }
+          }
+        } else if (item instanceof File) {
+          if (item.name === "notes.json") {
+            const text = await item.text();
+            await AsyncStorage.setItem(NOTES_KEY, text);
+            notesRestored = true;
+          }
+          if (item.name === "categories.json") {
+            const text = await item.text();
+            await AsyncStorage.setItem(CATEGORIES_KEY, text);
+            categoriesRestored = true;
+          }
+        }
+      }
+
+      if (notesRestored || categoriesRestored) {
+        await loadData();
+        //Alert.alert("Success", "Data restored successfully!");
+      } else {
+        // Alert.alert("Notice", "No valid backup files found in selected directory.");
+      }
+    } catch (err) {
+      console.error("Restore error:", err);
+      //Alert.alert("Error", "Failed to restore data.");
+    }
+  };
+
   // --- Category Actions ---
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
@@ -109,7 +198,6 @@ export default function NotesScreen() {
     const updated = categories.filter(c => c !== catToDelete);
     await saveCategoriesToStorage(updated);
 
-    // Unassign category from existing notes
     const updatedNotes = notes.map(n => n.category === catToDelete ? { ...n, category: undefined } : n);
     await saveNotesToStorage(updatedNotes);
 
@@ -120,7 +208,7 @@ export default function NotesScreen() {
 
   const handleSetNoteCategory = async (category: string) => {
     if (selectedNote) {
-      const updated = notes.map(n => 
+      const updated = notes.map(n =>
         n.id === selectedNote.id ? { ...n, category } : n
       );
       await saveNotesToStorage(updated);
@@ -132,7 +220,7 @@ export default function NotesScreen() {
 
   // --- Note Actions ---
   const handleToggleFavorite = async (noteToToggle: Note) => {
-    const updated = notes.map(n => 
+    const updated = notes.map(n =>
       n.id === noteToToggle.id ? { ...n, isFavorite: !n.isFavorite } : n
     );
     await saveNotesToStorage(updated);
@@ -140,7 +228,7 @@ export default function NotesScreen() {
 
   const handleToggleComplete = async () => {
     if (selectedNote) {
-      const updated = notes.map(n => 
+      const updated = notes.map(n =>
         n.id === selectedNote.id ? { ...n, isCompleted: !n.isCompleted } : n
       );
       await saveNotesToStorage(updated);
@@ -186,8 +274,8 @@ export default function NotesScreen() {
         matchesTab = selectedCategory ? note.category === selectedCategory : false;
       }
 
-      const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            note.content.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        note.content.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesTab && matchesSearch;
     })
     .sort((a, b) => {
@@ -206,11 +294,17 @@ export default function NotesScreen() {
 
       {/* HEADER */}
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: theme.title }]}>My Notes</Text>
+        <Text style={[styles.headerTitle, { color: theme.title }]}>Notes</Text>
         <View style={styles.headerActions}>
-          <Pressable 
-            style={[styles.addBtn, { backgroundColor: theme.accent }]} 
-            onPress={() => router.push('/addnote')}
+          <TouchableOpacity
+            style={[styles.headerIconBtn, { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }]}
+            onPress={() => setBackupModalVisible(true)}
+          >
+            <Ionicons name="cloud-upload-outline" size={20} color={theme.text} />
+          </TouchableOpacity>
+          <Pressable
+            style={[styles.addBtn, { backgroundColor: theme.accent, marginLeft: 10 }]}
+            onPress={() => router.push('./addnote')}
           >
             <FontAwesome5 name="plus" size={16} color="white" />
           </Pressable>
@@ -255,15 +349,15 @@ export default function NotesScreen() {
 
       {/* MAIN SCROLL VIEW */}
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-        
-        {/* CATEGORY SELECTION HEADER (If a Category is active) */}
+
+        {/* CATEGORY SELECTION HEADER */}
         {activeTab === 'categories' && selectedCategory && (
           <View style={styles.categoryHeaderFilterBar}>
             <Text style={[styles.categoryActiveTitle, { color: theme.title }]}>
               Category: <Text style={{ color: theme.accent }}>{selectedCategory}</Text>
             </Text>
-            <Pressable 
-              style={[styles.clearCategoryBtn, { backgroundColor: theme.card, borderColor: theme.border }]} 
+            <Pressable
+              style={[styles.clearCategoryBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
               onPress={() => setSelectedCategory(null)}
             >
               <FontAwesome5 name="arrow-left" size={12} color={theme.subtext} style={{ marginRight: 6 }} />
@@ -272,7 +366,7 @@ export default function NotesScreen() {
           </View>
         )}
 
-        {/* 100% WIDTH CATEGORY CARDS (Shown when inside Categories tab AND no category is selected) */}
+        {/* 100% WIDTH CATEGORY CARDS */}
         {activeTab === 'categories' && !selectedCategory && (
           <View style={styles.fullWidthCategoryList}>
             {categories.map(cat => {
@@ -308,7 +402,7 @@ export default function NotesScreen() {
           </View>
         )}
 
-        {/* NOTES MASONRY GRID (Only renders when NOT in category selection list) */}
+        {/* NOTES MASONRY GRID */}
         {(activeTab !== 'categories' || selectedCategory) && (
           filteredNotes.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -361,11 +455,11 @@ export default function NotesScreen() {
       <Modal transparent visible={menuVisible} animationType="fade" onRequestClose={() => setMenuVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setMenuVisible(false)}>
           <View style={[styles.menuContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Pressable 
-              style={styles.menuOption} 
+            <Pressable
+              style={styles.menuOption}
               onPress={() => {
                 setMenuVisible(false);
-                if (selectedNote) router.push({ pathname: '/addnote', params: { id: selectedNote.id } });
+                if (selectedNote) router.push({ pathname: './addnote', params: { id: selectedNote.id } });
               }}
             >
               <FontAwesome5 name="edit" size={16} color={theme.title} style={{ marginRight: 12 }} />
@@ -374,8 +468,8 @@ export default function NotesScreen() {
 
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-            <Pressable 
-              style={styles.menuOption} 
+            <Pressable
+              style={styles.menuOption}
               onPress={() => {
                 setMenuVisible(false);
                 setIsEditMode(false);
@@ -389,11 +483,11 @@ export default function NotesScreen() {
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
             <Pressable style={styles.menuOption} onPress={handleToggleComplete}>
-              <FontAwesome5 
-                name={selectedNote?.isCompleted ? "undo" : "check-circle"} 
-                size={16} 
-                color={theme.title} 
-                style={{ marginRight: 12 }} 
+              <FontAwesome5
+                name={selectedNote?.isCompleted ? "undo" : "check-circle"}
+                size={16}
+                color={theme.title}
+                style={{ marginRight: 12 }}
               />
               <Text style={[styles.menuOptionText, { color: theme.title }]}>
                 {selectedNote?.isCompleted ? "Mark Incomplete" : "Mark Complete"}
@@ -423,14 +517,12 @@ export default function NotesScreen() {
           <Pressable style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <View style={styles.modalHeaderRow}>
               <Text style={[styles.modalTitle, { color: theme.title }]}>Select Category</Text>
-              
-              {/* EDIT MODE TOGGLE BUTTON */}
+
               <Pressable hitSlop={10} onPress={() => setIsEditMode(!isEditMode)}>
                 <FontAwesome5 name="edit" size={18} color={isEditMode ? theme.accent : theme.subtext} />
               </Pressable>
             </View>
 
-            {/* ADD NEW CATEGORY INPUT ROW (ONLY SHOWN IN EDIT MODE) */}
             {isEditMode && (
               <View style={styles.addCategoryRow}>
                 <TextInput
@@ -447,7 +539,6 @@ export default function NotesScreen() {
               </View>
             )}
 
-            {/* CATEGORY LIST (DELETE ACTION ONLY SHOWN IN EDIT MODE) */}
             <ScrollView style={{ width: '100%', maxHeight: 220, marginVertical: 10 }}>
               {categories.map((cat) => (
                 <View key={cat} style={[styles.categoryOptionRow, { borderColor: theme.border }]}>
@@ -463,7 +554,6 @@ export default function NotesScreen() {
                     )}
                   </Pressable>
 
-                  {/* DELETE BUTTON (ONLY VISIBLE IN EDIT MODE) */}
                   {isEditMode && (
                     <Pressable hitSlop={10} onPress={() => handleDeleteCategory(cat)}>
                       <FontAwesome5 name="trash-alt" size={14} color={theme.delete} />
@@ -497,6 +587,48 @@ export default function NotesScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* BOTTOM SHEET BACKUP & RESTORE MODAL */}
+      <Modal
+        transparent
+        visible={backupModalVisible}
+        animationType="slide"
+        onRequestClose={() => setBackupModalVisible(false)}
+      >
+        <Pressable style={styles.bottomSheetOverlay} onPress={() => setBackupModalVisible(false)}>
+          <Pressable style={[styles.bottomSheetContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.modalTitle, { color: theme.title, marginBottom: 15, textAlign: 'center' }]}>Backup & Restore</Text>
+
+            <Pressable
+              style={[styles.backupActionItem, { borderColor: theme.border }]}
+              onPress={async () => {
+                setBackupModalVisible(false);
+                await handleBackupData();
+              }}
+            >
+              <FontAwesome5 name="file-export" size={18} color={theme.accent} style={{ marginRight: 14 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.backupActionTitle, { color: theme.title }]}>Backup Data</Text>
+                <Text style={[styles.backupActionSub, { color: theme.subtext }]}>Save notes and categories to local storage</Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              style={[styles.backupActionItem, { borderColor: theme.border }]}
+              onPress={async () => {
+                setBackupModalVisible(false);
+                await restoreData();
+              }}
+            >
+              <FontAwesome5 name="file-import" size={18} color={theme.accent} style={{ marginRight: 14 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.backupActionTitle, { color: theme.title }]}>Restore Data</Text>
+                <Text style={[styles.backupActionSub, { color: theme.subtext }]}>Overwrite local data from a backup folder</Text>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -505,19 +637,19 @@ export default function NotesScreen() {
 const NoteCard = ({ item, theme, timeLabel, onToggleFavorite, onOpenMenu }: any) => {
   return (
     <View style={[
-      styles.noteCard, 
+      styles.noteCard,
       { backgroundColor: theme.card, borderColor: theme.border, opacity: item.isCompleted ? 0.6 : 1 }
     ]}>
       <View style={styles.noteHeader}>
         <Text style={[styles.noteTime, { color: theme.subtext }]}>{timeLabel}</Text>
-        
+
         <View style={styles.cardHeaderActions}>
           <Pressable hitSlop={10} onPress={onToggleFavorite} style={{ marginRight: 12 }}>
-            <FontAwesome5 
-              name="bookmark" 
-              size={14} 
-              solid={item.isFavorite} 
-              color={item.isFavorite ? theme.accent : theme.subtext} 
+            <FontAwesome5
+              name="bookmark"
+              size={14}
+              solid={item.isFavorite}
+              color={item.isFavorite ? theme.accent : theme.subtext}
             />
           </Pressable>
           <Pressable hitSlop={10} onPress={() => onOpenMenu(item)}>
@@ -525,22 +657,22 @@ const NoteCard = ({ item, theme, timeLabel, onToggleFavorite, onOpenMenu }: any)
           </Pressable>
         </View>
       </View>
-      
-      <Text 
+
+      <Text
         style={[
-          styles.noteTitle, 
+          styles.noteTitle,
           { color: theme.title, textDecorationLine: item.isCompleted ? 'line-through' : 'none' }
-        ]} 
+        ]}
         numberOfLines={2}
       >
         {item.title}
       </Text>
-      
-      <Text 
+
+      <Text
         style={[
-          styles.noteContent, 
+          styles.noteContent,
           { color: theme.subtext, textDecorationLine: item.isCompleted ? 'line-through' : 'none' }
-        ]} 
+        ]}
       >
         {item.content}
       </Text>
@@ -556,44 +688,45 @@ const NoteCard = ({ item, theme, timeLabel, onToggleFavorite, onOpenMenu }: any)
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 25, 
-    paddingTop: 15, 
-    paddingBottom: 15 
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 25,
+    paddingTop: 15,
+    paddingBottom: 15
   },
   headerTitle: { fontSize: 28, fontWeight: '800' },
   headerActions: { flexDirection: 'row', alignItems: 'center' },
-  addBtn: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
+  headerIconBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: "center", alignItems: "center" },
+  addBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  searchContainer: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    marginHorizontal: 20, 
-    paddingHorizontal: 15, 
-    height: 46, 
-    borderRadius: 23, 
-    borderWidth: 1, 
-    marginBottom: 15 
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    paddingHorizontal: 15,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1,
+    marginBottom: 15
   },
   searchInput: { flex: 1, fontSize: 15 },
-  tabContainer: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-around', 
-    paddingHorizontal: 15, 
-    marginBottom: 15 
+  tabContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 15,
+    marginBottom: 15
   },
   tabButton: { paddingBottom: 6, position: 'relative', alignItems: 'center' },
   tabText: { fontSize: 15 },
   tabIndicator: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, borderRadius: 2 },
-  
+
   // Category Selection Filter Bar
   categoryHeaderFilterBar: {
     flexDirection: 'row',
@@ -614,15 +747,15 @@ const styles = StyleSheet.create({
 
   // 100% Width Category List Styles
   fullWidthCategoryList: { width: '100%', gap: 10, marginBottom: 15 },
-  fullWidthCategoryCard: { 
-    width: '100%', 
-    paddingHorizontal: 18, 
-    paddingVertical: 16, 
-    borderRadius: 16, 
-    borderWidth: 1, 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center' 
+  fullWidthCategoryCard: {
+    width: '100%',
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
   fullWidthCategoryTitle: { fontSize: 16, fontWeight: '700' },
   fullWidthCategoryCount: { fontSize: 13, fontWeight: '500' },
@@ -650,11 +783,37 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: '700' },
   modalSub: { textAlign: 'center', marginBottom: 25 },
   modalActions: { flexDirection: 'row', gap: 15 },
-  modalBtn: { flex: 1, padding: 15, borderRadius: 15, alignItems: 'center' },
-  
+  modalBtn: { padding: 15, borderRadius: 15, alignItems: 'center' },
+
   // Category Modal Options
   addCategoryRow: { flexDirection: 'row', width: '100%', gap: 8, marginVertical: 8 },
   addCategoryInput: { flex: 1, height: 40, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 14 },
   addCategoryBtn: { flexDirection: 'row', paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
-  categoryOptionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', paddingVertical: 12, borderBottomWidth: 1 }
+  categoryOptionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', paddingVertical: 12, borderBottomWidth: 1 },
+
+  // Bottom Sheet Backup Modal Styles
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end'
+  },
+  bottomSheetContainer: {
+    width: '100%',
+    padding: 24,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    alignItems: 'center'
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 16
+  },
+  backupActionItem: { flexDirection: 'row', alignItems: 'center', width: '100%', paddingVertical: 14, paddingHorizontal: 8, borderBottomWidth: 1 },
+  backupActionTitle: { fontSize: 15, fontWeight: '700' },
+  backupActionSub: { fontSize: 12, marginTop: 2 }
 });

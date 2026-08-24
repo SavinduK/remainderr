@@ -5,9 +5,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Footer from '../footer';
+import { Colors } from '../theme';
 import AddPasswordModal from './addPassword';
-import Footer from './footer';
-import { Colors } from './theme';
 
 const STORAGE_KEY = 'user_passwords_list';
 
@@ -33,7 +33,7 @@ export default function VaultScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
-  
+
   const [passwords, setPasswords] = useState<any[]>([]);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export default function VaultScreen() {
 
   // State to track password visibility per item
   const [visiblePasswordIds, setVisiblePasswordIds] = useState<{ [key: string]: boolean }>({});
-  
+
   // State to track active action menu dropdown
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
@@ -72,7 +72,7 @@ export default function VaultScreen() {
 
   const deleteEntry = async () => {
     if (!selectedId) return;
-    
+
     const updatedList = passwords.filter((item: any) => item.id !== selectedId);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
     setPasswords(updatedList);
@@ -82,16 +82,16 @@ export default function VaultScreen() {
 
   const copyToClipboard = async (text: string, label: string) => {
     await Clipboard.setStringAsync(text);
-    console.log(`${label} copied`); 
+    console.log(`${label} copied`);
     setActiveMenuId(null);
   };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
-      <AddPasswordModal 
-        visible={isAddModalVisible} 
-        onClose={() => setAddModalVisible(false)} 
-        onSave={loadPasswords} 
+      <AddPasswordModal
+        visible={isAddModalVisible}
+        onClose={() => setAddModalVisible(false)}
+        onSave={loadPasswords}
       />
 
       {/* Delete Confirmation Modal */}
@@ -107,17 +107,17 @@ export default function VaultScreen() {
             <Text style={[styles.modalSubtext, { color: theme.subtext }]}>
               This action cannot be undone.
             </Text>
-            
+
             <View style={styles.modalActionRow}>
-              <TouchableOpacity 
-                style={[styles.modalBtn, { backgroundColor: 'transparent' }]} 
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: 'transparent' }]}
                 onPress={() => setDeleteModalVisible(false)}
               >
                 <Text style={{ color: theme.subtext, fontWeight: '600' }}>Cancel</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={[styles.modalBtn, { backgroundColor: theme.delete + '20' }]} 
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: theme.delete + '20' }]}
                 onPress={deleteEntry}
               >
                 <Text style={{ color: theme.delete, fontWeight: '700' }}>Delete</Text>
@@ -129,7 +129,7 @@ export default function VaultScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: theme.title }]}>Passwords</Text>
+        <Text style={[styles.headerTitle, { color: theme.title }]}>Passwords</Text>
         <Pressable style={[styles.addBtn, { backgroundColor: theme.accent }]} onPress={() => setAddModalVisible(true)}>
           <FontAwesome5 name="plus" size={16} color={theme.title} />
         </Pressable>
@@ -150,10 +150,10 @@ export default function VaultScreen() {
               <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 {/* Brand / App Icon */}
                 <View style={styles.iconWrapper}>
-                  <FontAwesome5 
-                    name={iconConfig.name} 
-                    size={28} 
-                    color={iconConfig.color} 
+                  <FontAwesome5
+                    name={iconConfig.name}
+                    size={28}
+                    color={iconConfig.color}
                     solid={!iconConfig.brand}
                   />
                 </View>
@@ -163,7 +163,7 @@ export default function VaultScreen() {
                   <Text style={[styles.siteName, { color: theme.title }]} numberOfLines={1}>
                     {item.site}
                   </Text>
-                  
+
                   <Text style={[styles.passwordText, { color: theme.title }]}>
                     {isPasswordShown ? item.password : '●●●●●●●●'}
                   </Text>
@@ -171,19 +171,19 @@ export default function VaultScreen() {
 
                 {/* Actions: Eye Icon & 3-Dots Menu */}
                 <View style={styles.cardActions}>
-                  <TouchableOpacity 
-                    onPress={() => togglePasswordVisibility(item.id)} 
+                  <TouchableOpacity
+                    onPress={() => togglePasswordVisibility(item.id)}
                     style={styles.actionIconButton}
                   >
-                    <Ionicons 
-                      name={isPasswordShown ? "eye-off-outline" : "eye-outline"} 
-                      size={22} 
-                      color={theme.title} 
+                    <Ionicons
+                      name={isPasswordShown ? "eye-off-outline" : "eye-outline"}
+                      size={22}
+                      color={theme.title}
                     />
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    onPress={() => setActiveMenuId(isMenuOpen ? null : item.id)} 
+                  <TouchableOpacity
+                    onPress={() => setActiveMenuId(isMenuOpen ? null : item.id)}
                     style={styles.actionIconButton}
                   >
                     <Ionicons name="ellipsis-vertical" size={20} color={theme.title} />
@@ -194,16 +194,16 @@ export default function VaultScreen() {
               {/* Contextual Action Dropdown */}
               {isMenuOpen && (
                 <View style={[styles.dropdownMenu, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                  <TouchableOpacity 
-                    style={styles.dropdownItem} 
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
                     onPress={() => copyToClipboard(item.username, "Username")}
                   >
                     <Ionicons name="person-outline" size={16} color={theme.title} />
                     <Text style={[styles.dropdownText, { color: theme.title }]}>Copy Username</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    style={styles.dropdownItem} 
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
                     onPress={() => copyToClipboard(item.password, "Password")}
                   >
                     <Ionicons name="copy-outline" size={16} color={theme.title} />
@@ -212,8 +212,8 @@ export default function VaultScreen() {
 
                   <View style={[styles.dropdownDivider, { backgroundColor: theme.border }]} />
 
-                  <TouchableOpacity 
-                    style={styles.dropdownItem} 
+                  <TouchableOpacity
+                    style={styles.dropdownItem}
                     onPress={() => confirmDelete(item.id)}
                   >
                     <Ionicons name="trash-outline" size={16} color={theme.delete} />
@@ -225,7 +225,7 @@ export default function VaultScreen() {
           );
         }}
       />
-      <Footer/>
+      <Footer />
     </SafeAreaView>
   );
 }
@@ -235,19 +235,19 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 15, paddingBottom: 25 },
   headerSubtitle: { fontSize: 13, fontWeight: '600', opacity: 0.7 },
   headerTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, marginTop: 2 },
-  addBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  addBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   listContent: { paddingHorizontal: 20, paddingBottom: 40 },
   cardContainer: {
     marginBottom: 12,
     position: 'relative',
     zIndex: 1,
   },
-  card: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingHorizontal: 16, 
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 14,
-    borderRadius: 20, 
+    borderRadius: 20,
     borderWidth: 1,
   },
   iconWrapper: {
@@ -257,19 +257,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 14,
   },
-  cardTextContainer: { 
+  cardTextContainer: {
     flex: 1,
     justifyContent: 'center',
   },
-  siteName: { 
-    fontSize: 16, 
-    fontWeight: '700', 
-    marginBottom: 4 
+  siteName: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4
   },
-  passwordText: { 
-    fontSize: 13, 
-    fontWeight: '800', 
-    letterSpacing: 1.5 
+  passwordText: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1.5
   },
   cardActions: {
     flexDirection: 'row',

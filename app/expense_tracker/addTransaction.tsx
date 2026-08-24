@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from './theme';
+import { Colors } from '../theme';
 
 const CATEGORIES = [
   { label: 'Food', icon: 'utensils' },
@@ -47,7 +47,7 @@ export default function AddTransaction() {
       const transactions = existingData ? JSON.parse(existingData) : [];
       transactions.unshift(newEntry);
       await AsyncStorage.setItem('transactions', JSON.stringify(transactions));
-      router.replace('/transactions');
+      router.replace('./transactions');
     } catch (e) {
       Alert.alert("Error", "Failed to save data.");
     }
@@ -68,13 +68,13 @@ export default function AddTransaction() {
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Toggle Switch */}
         <View style={[styles.typeContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Pressable 
+          <Pressable
             onPress={() => setType('income')}
             style={[styles.typeBtn, type === 'income' && { backgroundColor: theme.success }]}
           >
             <Text style={[styles.typeText, { color: type === 'income' ? 'white' : theme.subtext }]}>Income</Text>
           </Pressable>
-          <Pressable 
+          <Pressable
             onPress={() => setType('expense')}
             style={[styles.typeBtn, type === 'expense' && { backgroundColor: theme.delete }]}
           >
@@ -115,10 +115,10 @@ export default function AddTransaction() {
                 { backgroundColor: theme.card, borderColor: category === item.label ? theme.accent : theme.border }
               ]}
             >
-              <FontAwesome5 
-                name={item.icon} 
-                size={18} 
-                color={category === item.label ? theme.accent : theme.icon} 
+              <FontAwesome5
+                name={item.icon}
+                size={18}
+                color={category === item.label ? theme.accent : theme.icon}
               />
               <Text style={[styles.categoryLabel, { color: category === item.label ? theme.title : theme.subtext }]}>
                 {item.label}

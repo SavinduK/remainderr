@@ -19,10 +19,10 @@ export default function Footer() {
     <View style={[styles.footer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
       {/* My Tasks Tab */}
       <Pressable onPress={() => router.push('/')} style={styles.tab}>
-        <FontAwesome5 
-          name="list-ul" 
-          size={20} 
-          color={getTabColor('/')} 
+        <FontAwesome5
+          name="list-ul"
+          size={20}
+          color={getTabColor('/')}
         />
         <Text style={[styles.tabLabel, { color: getTabColor('/') }]}>
           Tasks
@@ -30,50 +30,62 @@ export default function Footer() {
       </Pressable>
 
       {/* Transactions Tab */}
-      <Pressable onPress={() => router.push('/transactions')} style={styles.tab}>
-        <FontAwesome5 
-          name="dollar-sign" 
-          size={20} 
-          color={getTabColor('/transactions')} 
+      <Pressable onPress={() => router.push('/diary/diary')} style={styles.tab}>
+        <FontAwesome5
+          name="book"
+          size={20}
+          color={getTabColor('/diary/diary')}
         />
-        <Text style={[styles.tabLabel, { color: getTabColor('/transactions') }]}>
-          Transactions
+        <Text style={[styles.tabLabel, { color: getTabColor('/diary/diary') }]}>
+          Diary
         </Text>
       </Pressable>
 
-       {/* My Notes Tab */}
-      <Pressable onPress={() => router.push('/notes')} style={styles.tab}>
-        <FontAwesome5 
-          name="sticky-note" 
-          size={20} 
-          color={getTabColor('/notes')} 
+      {/* Transactions Tab */}
+      <Pressable onPress={() => router.push('/expense_tracker/transactions')} style={styles.tab}>
+        <FontAwesome5
+          name="dollar-sign"
+          size={20}
+          color={getTabColor('/expense_tracker/transactions')}
         />
-        <Text style={[styles.tabLabel, { color: getTabColor('/notes') }]}>
+        <Text style={[styles.tabLabel, { color: getTabColor('/expense_tracker/transactions') }]}>
+          Cash
+        </Text>
+      </Pressable>
+
+      {/* My Notes Tab */}
+      <Pressable onPress={() => router.push('/notes/notes')} style={styles.tab}>
+        <FontAwesome5
+          name="sticky-note"
+          size={20}
+          color={getTabColor('/notes/notes')}
+        />
+        <Text style={[styles.tabLabel, { color: getTabColor('/notes/notes') }]}>
           Notes
         </Text>
       </Pressable>
 
       {/* Password Tab */}
-      <Pressable onPress={() => router.push('/password')} style={styles.tab}>
-        <FontAwesome5 
-          name="key" 
-          size={20} 
-          color={getTabColor('/password')} 
+      <Pressable onPress={() => router.push('/settings')} style={styles.tab}>
+        <FontAwesome5
+          name="cog"
+          size={20}
+          color={getTabColor('/settings')}
         />
-        <Text style={[styles.tabLabel, { color: getTabColor('/password') }]}>
-          Passwords
+        <Text style={[styles.tabLabel, { color: getTabColor('/settings') }]}>
+          Settings
         </Text>
       </Pressable>
-    </View>   
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  footer: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-around', 
-    paddingTop: 8, 
-    paddingBottom: 15, 
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 8,
+    paddingBottom: 15,
     borderTopWidth: 1,
     position: 'absolute',
     bottom: 0,
@@ -84,9 +96,9 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  tab: { 
-    alignItems: 'center', 
-    justifyContent: 'center', 
+  tab: {
+    alignItems: 'center',
+    justifyContent: 'center',
     minWidth: 70,
     paddingVertical: 4,
   },

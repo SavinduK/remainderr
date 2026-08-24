@@ -241,7 +241,7 @@ export default function Index() {
       {/* CALENDAR SECTION */}
       <View style={styles.calendarSection}>
         <View style={styles.header}>
-          <Text style={[styles.mainTitle, { color: theme.title }]}>My Tasks</Text>
+          <Text style={[styles.mainTitle, { color: theme.title }]}> Tasks</Text>
           <Pressable style={styles.addBtnBlue} onPress={() => router.push('/addtask')}>
             <FontAwesome5 name="plus" size={14} color="white" />
           </Pressable>

@@ -5,8 +5,8 @@ import React, { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, Animated, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from "react-native";
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Footer from './footer';
-import { Colors } from './theme';
+import Footer from '../footer';
+import { Colors } from '../theme';
 
 // --- TYPES ---
 interface Transaction {
@@ -73,11 +73,11 @@ const TransactionRow = ({ item, onDelete, theme, isLast }: any) => {
       }}
     >
       <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
-        <Pressable 
-          onPressIn={handlePressIn} 
+        <Pressable
+          onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           style={[
-            styles.row, 
+            styles.row,
             !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border }
           ]}
         >
@@ -93,10 +93,10 @@ const TransactionRow = ({ item, onDelete, theme, isLast }: any) => {
           </View>
 
           <View style={styles.amountContainer}>
-            <FontAwesome5 
-              name={isIncome ? "arrow-up" : "arrow-down"} 
-              size={12} 
-              color={theme.subtext} 
+            <FontAwesome5
+              name={isIncome ? "arrow-up" : "arrow-down"}
+              size={12}
+              color={theme.subtext}
               style={styles.arrowIcon}
             />
             <Text style={[styles.amountText, { color: theme.subtext }]}>
@@ -112,7 +112,7 @@ const TransactionRow = ({ item, onDelete, theme, isLast }: any) => {
 // --- MAIN SCREEN ---
 export default function Index() {
   const [activeTab, setActiveTab] = useState<'transactions' | 'cards'>('transactions');
-  
+
   // Transaction State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -236,21 +236,21 @@ export default function Index() {
   const deleteCard = (id: string) => {
     Alert.alert("Delete Card", "Are you sure you want to remove this card?", [
       { text: "Cancel", style: "cancel" },
-      { 
-        text: "Delete", 
-        style: "destructive", 
+      {
+        text: "Delete",
+        style: "destructive",
         onPress: async () => {
           const updated = cards.filter(c => c.id !== id);
           setCards(updated);
           await AsyncStorage.setItem('user_cards', JSON.stringify(updated));
-        } 
+        }
       }
     ]);
   };
 
   const handleAddButtonPress = () => {
     if (activeTab === 'transactions') {
-      router.push('/addTransaction');
+      router.push('./addTransaction');
     } else {
       setCardModalVisible(true);
     }
@@ -263,20 +263,20 @@ export default function Index() {
       <View style={styles.cardTop}>
         <Text style={styles.cardBank}>{item.bankName}</Text>
         <View style={styles.cardTopRight}>
-          <FontAwesome5 
-            name={item.type === 'Visa' ? 'cc-visa' : 'cc-mastercard'} 
-            size={28} 
-            color="white" 
-            style={{ marginRight: 12 }} 
+          <FontAwesome5
+            name={item.type === 'Visa' ? 'cc-visa' : 'cc-mastercard'}
+            size={28}
+            color="white"
+            style={{ marginRight: 12 }}
           />
           <Pressable onPress={() => deleteCard(item.id)}>
             <FontAwesome5 name='trash' size={16} color="rgba(255,255,255,0.8)" />
           </Pressable>
         </View>
       </View>
-      
+
       <Text style={styles.cardNumberText}>{formatCardNumber(item.cardNumber)}</Text>
-      
+
       <View style={styles.cardBottom}>
         <View>
           <Text style={styles.cardLabel}>CARD HOLDER</Text>
@@ -293,16 +293,15 @@ export default function Index() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-        
+
         {/* --- DYNAMIC HEADER --- */}
         <View style={styles.header}>
           <View>
-            <Text style={[styles.headerSubtitle, { color: theme.subtext }]}>Manage Your</Text>
             <Text style={[styles.headerTitle, { color: theme.title }]}>
               {activeTab === 'transactions' ? 'Transactions' : 'Credit Cards'}
             </Text>
           </View>
-          
+
           {/* Dynamic Plus Action Button */}
           <Pressable style={[styles.addBtn, { backgroundColor: theme.accent }]} onPress={handleAddButtonPress}>
             <FontAwesome5 name="plus" size={18} color="white" />
@@ -311,7 +310,7 @@ export default function Index() {
 
         {/* --- HORIZONTAL SEGMENT CONTROL BAR --- */}
         <View style={[styles.tabBarContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Pressable 
+          <Pressable
             style={[styles.tabButton, activeTab === 'transactions' && { backgroundColor: theme.accent }]}
             onPress={() => setActiveTab('transactions')}
           >
@@ -319,7 +318,7 @@ export default function Index() {
               Transactions
             </Text>
           </Pressable>
-          <Pressable 
+          <Pressable
             style={[styles.tabButton, activeTab === 'cards' && { backgroundColor: theme.accent }]}
             onPress={() => setActiveTab('cards')}
           >
@@ -332,7 +331,7 @@ export default function Index() {
         {/* --- TAB 1: TRANSACTIONS VIEW --- */}
         {activeTab === 'transactions' ? (
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-            
+
             {/* Total Balance Card */}
             <View style={[styles.balanceCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <View style={styles.balanceHeader}>
@@ -427,9 +426,9 @@ export default function Index() {
 
               {/* Card Type Selector */}
               <View style={styles.typeSelectorContainer}>
-                <Pressable 
+                <Pressable
                   style={[
-                    styles.typeOption, 
+                    styles.typeOption,
                     { borderColor: theme.border },
                     cardType === 'Visa' && { backgroundColor: theme.accent, borderColor: theme.accent }
                   ]}
@@ -439,9 +438,9 @@ export default function Index() {
                   <Text style={[styles.typeText, { color: cardType === 'Visa' ? 'white' : theme.subtext }]}>Visa</Text>
                 </Pressable>
 
-                <Pressable 
+                <Pressable
                   style={[
-                    styles.typeOption, 
+                    styles.typeOption,
                     { borderColor: theme.border },
                     cardType === 'Mastercard' && { backgroundColor: theme.accent, borderColor: theme.accent }
                   ]}
@@ -501,31 +500,31 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 15, paddingBottom: 10 },
   headerSubtitle: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   headerTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5, marginTop: 2 },
-  addBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
-  
+  addBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+
   // Tab Bar Styles
-  tabBarContainer: { 
-    flexDirection: 'row', 
-    marginHorizontal: 20, 
-    marginVertical: 10, 
-    borderRadius: 16, 
-    padding: 4, 
-    borderWidth: 1 
+  tabBarContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginVertical: 10,
+    borderRadius: 16,
+    padding: 4,
+    borderWidth: 1
   },
-  tabButton: { 
-    flex: 1, 
-    paddingVertical: 10, 
-    borderRadius: 12, 
-    alignItems: 'center', 
-    justifyContent: 'center' 
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   tabText: { fontSize: 14, fontWeight: '700' },
 
   // Balance Card Styles
-  balanceCard: { 
-    padding: 20, 
-    borderRadius: 24, 
-    marginBottom: 16, 
+  balanceCard: {
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 16,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -541,13 +540,13 @@ const styles = StyleSheet.create({
   // Grouped Card Styles
   scroll: { flex: 1, paddingHorizontal: 20, paddingTop: 6 },
   groupCard: { borderRadius: 20, borderWidth: 1, marginBottom: 16, overflow: 'hidden' },
-  groupHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 16, 
-    paddingVertical: 12, 
-    borderBottomWidth: StyleSheet.hairlineWidth 
+  groupHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth
   },
   groupDateText: { fontSize: 13, fontWeight: '700' },
   groupTotalText: { fontSize: 13, fontWeight: '800' },
@@ -588,7 +587,7 @@ const styles = StyleSheet.create({
   cardModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   cardModalContent: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 25, minHeight: 480 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  
+
   // Card Type Selector Styles
   typeSelectorContainer: { flexDirection: 'row', gap: 12, marginBottom: 15 },
   typeOption: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 14, borderWidth: 1, gap: 8 },
