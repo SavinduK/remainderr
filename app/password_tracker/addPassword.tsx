@@ -2,7 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useState } from 'react';
 import {
-  KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View
+  Keyboard,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  useColorScheme,
+  View
 } from 'react-native';
 import { Colors } from '../theme';
 
@@ -35,63 +43,75 @@ export default function AddPasswordModal({ visible, onClose, onSave }: AddPasswo
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={[styles.modalContent, { backgroundColor: theme.background, borderColor: theme.border }]}
-        >
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: theme.title }]}>New Entry</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color={theme.subtext} />
-            </TouchableOpacity>
-          </View>
+    <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.overlay}>
+          <TouchableWithoutFeedback>
+            <View style={[styles.modalContent, { backgroundColor: theme.background, borderColor: theme.border }]}>
 
-          <View style={[styles.inputContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <TextInput
-              placeholder="Site / App" placeholderTextColor={theme.subtext}
-              style={[styles.input, { color: theme.text, borderBottomColor: theme.border }]}
-              value={form.site}
-              onChangeText={(t) => setForm({ ...form, site: t })}
-            />
-            <TextInput
-              placeholder="Username" placeholderTextColor={theme.subtext}
-              style={[styles.input, { color: theme.text, borderBottomColor: theme.border }]}
-              autoCapitalize="none"
-              value={form.user}
-              onChangeText={(t) => setForm({ ...form, user: t })}
-            />
-            <TextInput
-              placeholder="Password" placeholderTextColor={theme.subtext}
-              secureTextEntry style={[styles.input, { color: theme.text, borderBottomWidth: 0 }]}
-              value={form.pass}
-              onChangeText={(t) => setForm({ ...form, pass: t })}
-            />
-          </View>
+              <View style={styles.header}>
+                <Text style={[styles.title, { color: theme.title }]}>New Entry</Text>
+                <TouchableOpacity onPress={onClose}>
+                  <Ionicons name="close" size={24} color={theme.subtext} />
+                </TouchableOpacity>
+              </View>
 
-          <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent_light, borderColor: theme.accent }]} onPress={handleSave}>
-            <Text style={[styles.btnText, { color: theme.accent }]}>Save</Text>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
-      </View>
+              <View style={[styles.inputContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                <TextInput
+                  placeholder="Site / App"
+                  placeholderTextColor={theme.subtext}
+                  style={[styles.input, { color: theme.text, borderBottomColor: theme.border }]}
+                  value={form.site}
+                  onChangeText={(t) => setForm({ ...form, site: t })}
+                />
+                <TextInput
+                  placeholder="Username"
+                  placeholderTextColor={theme.subtext}
+                  style={[styles.input, { color: theme.text, borderBottomColor: theme.border }]}
+                  autoCapitalize="none"
+                  value={form.user}
+                  onChangeText={(t) => setForm({ ...form, user: t })}
+                />
+                <TextInput
+                  placeholder="Password"
+                  placeholderTextColor={theme.subtext}
+                  secureTextEntry
+                  style={[styles.input, { color: theme.text, borderBottomWidth: 0 }]}
+                  value={form.pass}
+                  onChangeText={(t) => setForm({ ...form, pass: t })}
+                />
+              </View>
+
+              <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent_light, borderColor: theme.accent }]} onPress={handleSave}>
+                <Text style={[styles.btnText, { color: theme.accent }]}>Save</Text>
+              </TouchableOpacity>
+
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   modalContent: {
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    width: '85%',
+    borderRadius: 24,
+    borderWidth: 1,
     padding: 24,
-    paddingBottom: 40,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: 20,
   },
   title: { fontSize: 22, fontWeight: '800' },
   inputContainer: { borderRadius: 15, borderWidth: 1, paddingHorizontal: 15 },

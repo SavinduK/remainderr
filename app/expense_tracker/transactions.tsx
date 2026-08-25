@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: 'row', gap: 12 },
   modalBtn: { flex: 1, padding: 14, borderRadius: 14, alignItems: 'center' },
 
-  cardModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  cardModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center' },
   cardModalContent: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 25, minHeight: 480 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
 
