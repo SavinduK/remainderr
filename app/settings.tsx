@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router'; // Added router import
@@ -35,7 +35,7 @@ export default function Settings() {
 
   // New UI states
   const [showKey, setShowKey] = useState(false);
-  const [isAiCollapsed, setIsAiCollapsed] = useState(false);
+  const [isAiCollapsed, setIsAiCollapsed] = useState(true);
 
   useEffect(() => {
     loadSettings();
@@ -212,7 +212,7 @@ export default function Settings() {
           onPress={() => router.push('/history/history')}
         >
           <View style={styles.navigationCardTitleGroup}>
-            <Ionicons name="key-outline" size={20} color="#007aff" style={{ marginRight: 10 }} />
+            <FontAwesome5 name="user-md" size={20} color="#007aff" style={{ marginRight: 10 }} />
             <Text style={styles.navigationCardTitle}>Clinical Tracker</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#8e8e93" />
