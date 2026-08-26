@@ -207,8 +207,11 @@ export default function Index() {
       const parsed = await Promise.all(entryPromises);
       const validEntries = parsed
         .filter((item): item is { folder: Directory; json: any } => item !== null)
-        .sort((a, b) => b.json.id - a.json.id);
-
+        .sort((a, b) => {
+          const dateA = new Date(a.json.id).getTime();
+          const dateB = new Date(b.json.id).getTime();
+          return dateB - dateA; // Sorts descending (latest entries first)
+        });
       setEntries(validEntries);
     } catch (e) {
       console.error("Load error:", e);
