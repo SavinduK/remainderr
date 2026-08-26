@@ -12,11 +12,16 @@ import {
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
+  useColorScheme,
   View,
 } from 'react-native';
 import Footer from '../footer';
+import { Colors } from '../theme';
+
 
 const HISTORY_DIR = FileSystem.documentDirectory + 'histories/';
+const colorScheme = useColorScheme();
+const theme = Colors[colorScheme ?? 'light'];
 
 interface FileItem {
   name: string;
@@ -139,9 +144,14 @@ export default function HistoryList() {
       {/* Header */}
       <View style={styles.headerRow}>
         <Text style={styles.headerTitle}>Patient Histories</Text>
-        <TouchableOpacity style={styles.addButton} activeOpacity={0.8} onPress={() => router.push('./input')}>
-          <Ionicons name="add" size={24} color="#fff" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <TouchableOpacity style={[styles.addButton, { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }]} activeOpacity={0.8} onPress={() => router.push('./checklist')}>
+            <Ionicons name="list" size={24} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addButton} activeOpacity={0.8} onPress={() => router.push('./input')}>
+            <Ionicons name="add" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* List */}
