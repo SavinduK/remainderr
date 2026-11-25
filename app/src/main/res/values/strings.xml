@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Remainderr</string>
+    <string name="widget_description">Upcoming and overdue tasks</string>
+
+    <!-- Bottom Navigation -->
+    <string name="nav_tasks">Tasks</string>
+    <string name="nav_diary">Diary</string>
+    <string name="nav_cash">Cash</string>
+    <string name="nav_notes">Notes</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Tasks -->
+    <string name="tasks_title">Tasks</string>
+    <string name="no_tasks_for_day">No tasks for this day</string>
+    <string name="delete_task_title">Delete Task</string>
+    <string name="delete_task_subtitle">Remove this task permanently?</string>
+    <string name="new_task_title">New Task</string>
+    <string name="all_day">All day</string>
+
+    <!-- Diary -->
+    <string name="journal_title">Journal</string>
+    <string name="untitled_entry">Untitled Entry</string>
+    <string name="no_details_provided">No details provided.</string>
+    <string name="delete_entry_title">Delete Entry</string>
+    <string name="delete_entry_confirm">Are you sure you want to delete this diary entry?</string>
+
+    <!-- Transactions & Cards -->
+    <string name="transactions_title">Transactions</string>
+    <string name="credit_cards_title">Credit Cards</string>
+    <string name="net_balance">Net Balance</string>
+    <string name="new_transaction_title">New Transaction</string>
+    <string name="no_transactions_yet">No transactions yet.</string>
+    <string name="no_cards_yet">No cards added yet.</string>
+
+    <!-- Notes -->
+    <string name="notes_title">Notes</string>
+    <string name="search_placeholder">Search</string>
+    <string name="all_notes_tab">All Notes</string>
+    <string name="favorites_tab">Favorites</string>
+    <string name="categories_tab">Categories</string>
+    <string name="no_notes_found">No notes found</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="ai_configuration">AI Configuration</string>
+    <string name="backup_and_restore">Backup &amp; Restore</string>
+    <string name="password_tracker">Password Tracker</string>
+    <string name="clinical_tracker">Clinical Tracker</string>
+
+    <!-- Passwords -->
+    <string name="passwords_title">Passwords</string>
+    <string name="new_password_entry">New Entry</string>
+    <string name="delete_credential_title">Delete Credential?</string>
+    <string name="delete_credential_subtext">This action cannot be undone.</string>
+
+    <!-- Clinical History -->
+    <string name="patient_histories_title">Patient Histories</string>
+    <string name="clinical_workflow_subtitle">CLINICAL WORKFLOW</string>
+    <string name="history_checklist_title">History Checklist</string>
+    <string name="upload_note_title">Upload Note</string>
+
+    <!-- Common -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_save">Save</string>
+    <string name="action_done">Done</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_back">Back</string>
+    <string name="action_add">Add</string>
+</resources>

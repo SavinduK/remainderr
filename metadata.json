@@ -1,0 +1,6 @@
+{
+  "name": "Remainderr",
+  "description": "Personal productivity suite with task calendar and widget, photo journal, expense and card tracker, categorized notes, password vault, and clinical history tracker.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
