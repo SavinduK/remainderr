@@ -17,8 +17,3 @@ import kotlinx.serialization.Serializable
 
 @Serializable object SettingsRoute
 @Serializable object PasswordsRoute
-
-@Serializable object ClinicalHistoryRoute
-@Serializable object ClinicalInputRoute
-@Serializable data class ClinicalViewRoute(val fileName: String)
-@Serializable object ClinicalChecklistRoute

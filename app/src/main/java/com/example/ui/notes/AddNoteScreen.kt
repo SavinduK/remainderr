@@ -20,13 +20,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
-import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.Title
-import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,7 +42,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -59,7 +56,6 @@ fun AddNoteScreen(
     val palette = RemainderrTheme.palette
 
     var content by remember { mutableStateOf("") }
-    var isFavorite by remember { mutableStateOf(false) }
 
     val undoStack = remember { mutableStateListOf<String>() }
     val redoStack = remember { mutableStateListOf<String>() }
@@ -75,7 +71,6 @@ fun AddNoteScreen(
                         existing.title
                     else -> existing.content
                 }
-                isFavorite = existing.isFavorite
             }
         }
     }
@@ -89,7 +84,7 @@ fun AddNoteScreen(
     }
 
     val saveAndBack = {
-        viewModel.saveNote(noteId, "", content, isFavorite, onBack)
+        viewModel.saveNote(noteId, content, onBack)
     }
 
     BackHandler { saveAndBack() }
@@ -123,31 +118,17 @@ fun AddNoteScreen(
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = { isFavorite = !isFavorite },
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("note_favorite_button"),
-                ) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                        contentDescription = "Toggle favorite",
-                        tint = if (isFavorite) palette.accent else palette.subtext,
-                    )
-                }
-                IconButton(
-                    onClick = saveAndBack,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("note_save_button"),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = stringResource(R.string.action_save),
-                        tint = palette.accent,
-                    )
-                }
+            IconButton(
+                onClick = saveAndBack,
+                modifier = Modifier
+                    .size(48.dp)
+                    .testTag("note_save_button"),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = stringResource(R.string.action_save),
+                    tint = palette.accent,
+                )
             }
         }
 

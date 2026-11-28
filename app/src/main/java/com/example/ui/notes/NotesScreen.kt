@@ -3,8 +3,6 @@ package com.example.ui.notes
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,11 +30,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -46,12 +42,6 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.automirrored.outlined.StickyNote2
-import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material.icons.outlined.CloudUpload
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.FileDownload
-import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -59,11 +49,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -75,7 +63,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -86,7 +73,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -95,13 +81,72 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.data.local.NoteEntity
 import com.example.ui.theme.RemainderrTheme
-import java.time.Duration
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import kotlin.math.abs
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val CategoryPalette = listOf(
+    Color(0xFF2563EB), // Blue - Work
+    Color(0xFF10B981), // Emerald - Personal
+    Color(0xFFF59E0B), // Amber - Ideas
+    Color(0xFFEC4899), // Rose Pink - To-Do
+    Color(0xFF8B5CF6), // Violet
+    Color(0xFF06B6D4), // Cyan
+    Color(0xFFEF4444), // Coral Red
+    Color(0xFF14B8A6), // Teal
+    Color(0xFFF97316), // Tangerine
+    Color(0xFF6366F1), // Indigo
+    Color(0xFF84CC16), // Lime
+    Color(0xFFD946EF), // Fuchsia
+)
+
+private val FixedCategoryColors = mapOf(
+    "work" to CategoryPalette[0],
+    "personal" to CategoryPalette[1],
+    "ideas" to CategoryPalette[2],
+    "to-do" to CategoryPalette[3],
+)
+
+private fun buildCategoryColorMap(categories: List<String>): Map<String, Color> {
+    val result = linkedMapOf<String, Color>()
+    val used = mutableSetOf<Color>()
+
+    categories.forEach { cat ->
+        val fixed = FixedCategoryColors[cat.trim().lowercase()]
+        if (fixed != null && fixed !in used) {
+            result[cat] = fixed
+            used.add(fixed)
+        }
+    }
+
+    var paletteIdx = 0
+    var overflowIdx = 0
+    categories.forEach { cat ->
+        if (cat !in result) {
+            var assigned: Color? = null
+            while (paletteIdx < CategoryPalette.size) {
+                val candidate = CategoryPalette[paletteIdx++]
+                if (candidate !in used) {
+                    assigned = candidate
+                    used.add(candidate)
+                    break
+                }
+            }
+            if (assigned == null) {
+                val hue = ((overflowIdx * 137.508f) + 25f) % 360f
+                overflowIdx++
+                assigned = Color.hsv(hue, 0.72f, 0.85f)
+            }
+            result[cat] = assigned
+        }
+    }
+    return result
+}
+
+private fun fallbackCategoryColor(category: String): Color {
+    FixedCategoryColors[category.trim().lowercase()]?.let { return it }
+    val index = abs(category.trim().lowercase().hashCode()) % CategoryPalette.size
+    return CategoryPalette[index]
+}
+
 @Composable
 fun NotesScreen(
     viewModel: NotesViewModel,
@@ -117,15 +162,10 @@ fun NotesScreen(
     var isCategoryEditMode by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
     var deleteNoteTarget by remember { mutableStateOf<NoteEntity?>(null) }
-    var backupSheetVisible by remember { mutableStateOf(false) }
 
-    val backupLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree(),
-    ) { uri -> uri?.let { viewModel.backupNotes(it) } }
-
-    val restoreLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree(),
-    ) { uri -> uri?.let { viewModel.restoreNotes(it) } }
+    val categoryColorMap = remember(state.categories) {
+        buildCategoryColorMap(state.categories)
+    }
 
     Column(
         modifier = modifier
@@ -147,40 +187,21 @@ fun NotesScreen(
                 fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(palette.card)
-                        .border(1.dp, palette.border, CircleShape)
-                        .clickable { backupSheetVisible = true }
-                        .testTag("notes_backup_button"),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CloudUpload,
-                        contentDescription = stringResource(R.string.backup_and_restore),
-                        tint = palette.title,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(palette.accent)
-                        .clickable(onClick = onAddNoteClick)
-                        .testTag("add_note_button"),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = "New note",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(palette.accent)
+                    .clickable(onClick = onAddNoteClick)
+                    .testTag("add_note_button"),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "New note",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp),
+                )
             }
         }
 
@@ -190,10 +211,10 @@ fun NotesScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 15.dp)
-                .height(46.dp)
-                .clip(RoundedCornerShape(23.dp))
+                .height(48.dp)
+                .clip(RoundedCornerShape(24.dp))
                 .background(palette.card)
-                .border(1.dp, palette.border, RoundedCornerShape(23.dp))
+                .border(1.dp, palette.border, RoundedCornerShape(24.dp))
                 .padding(horizontal = 15.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -225,17 +246,16 @@ fun NotesScreen(
             }
         }
 
-        // Navigation Tabs
+        // Navigation Tabs (All Notes & Categories)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 15.dp)
+                .padding(horizontal = 20.dp)
                 .padding(bottom = 15.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
+            horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             val tabs = listOf(
                 NotesTab.ALL to stringResource(R.string.all_notes_tab),
-                NotesTab.FAVORITES to stringResource(R.string.favorites_tab),
                 NotesTab.CATEGORIES to stringResource(R.string.categories_tab),
             )
             tabs.forEach { (tab, label) ->
@@ -244,7 +264,7 @@ fun NotesScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .clickable { viewModel.setTab(tab) }
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
                         .testTag("notes_tab_${tab.name.lowercase()}"),
                 ) {
                     Text(
@@ -257,7 +277,7 @@ fun NotesScreen(
                     if (active) {
                         Box(
                             modifier = Modifier
-                                .width(64.dp)
+                                .width(72.dp)
                                 .height(3.dp)
                                 .clip(RoundedCornerShape(2.dp))
                                 .background(palette.accent),
@@ -271,6 +291,8 @@ fun NotesScreen(
 
         // Category filter header when category selected
         if (state.activeTab == NotesTab.CATEGORIES && state.selectedCategory != null) {
+            val selCat = state.selectedCategory.orEmpty()
+            val selColor = categoryColorMap[selCat] ?: fallbackCategoryColor(selCat)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -279,24 +301,35 @@ fun NotesScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = buildAnnotatedString {
-                        append("Category: ")
-                        withStyle(SpanStyle(color = palette.accent)) {
-                            append(state.selectedCategory)
-                        }
-                    },
-                    color = palette.title,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(selColor),
+                    )
+                    Text(
+                        text = buildAnnotatedString {
+                            append("Category: ")
+                            withStyle(SpanStyle(color = selColor)) {
+                                append(selCat)
+                            }
+                        },
+                        color = palette.title,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .background(palette.card)
                         .border(1.dp, palette.border, RoundedCornerShape(20.dp))
                         .clickable { viewModel.selectCategory(null) }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -311,19 +344,20 @@ fun NotesScreen(
             }
         }
 
-        // Content: either Category List or Masonry Notes Grid
+        // Content: either Category List or Full-Width Notes List
         if (state.activeTab == NotesTab.CATEGORIES && state.selectedCategory == null) {
             LazyColumn(
-                contentPadding = PaddingValues(horizontal = 15.dp, vertical = 4.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 items(state.categories, key = { it }) { cat ->
                     val noteCount = state.allNotes.count { it.category == cat }
+                    val catColor = categoryColorMap[cat] ?: fallbackCategoryColor(cat)
                     Card(
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = palette.card),
-                        border = BorderStroke(1.dp, palette.border),
+                        border = BorderStroke(1.dp, catColor.copy(alpha = 0.28f)),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { viewModel.selectCategory(cat) },
@@ -331,17 +365,25 @@ fun NotesScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 18.dp, vertical = 16.dp),
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Filled.Folder,
-                                    contentDescription = null,
-                                    tint = palette.accent,
-                                    modifier = Modifier.size(22.dp),
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(catColor.copy(alpha = 0.14f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Folder,
+                                        contentDescription = null,
+                                        tint = catColor,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
                                 Spacer(modifier = Modifier.width(14.dp))
                                 Text(
                                     text = cat,
@@ -353,16 +395,16 @@ fun NotesScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = "$noteCount ${if (noteCount == 1) "note" else "notes"}",
-                                    color = palette.subtext,
+                                    color = catColor,
                                     fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = FontWeight.SemiBold,
                                 )
-                                Spacer(modifier = Modifier.width(10.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Icon(
                                     imageVector = Icons.Filled.ChevronRight,
                                     contentDescription = null,
                                     tint = palette.subtext,
-                                    modifier = Modifier.size(16.dp),
+                                    modifier = Modifier.size(18.dp),
                                 )
                             }
                         }
@@ -402,15 +444,17 @@ fun NotesScreen(
             ) {
                 items(state.filteredNotes, key = { it.id }) { note ->
                     val copyText = if (note.content.isNotBlank()) note.content else note.title
+                    val noteCategoryColor = note.category?.takeIf { it.isNotBlank() }?.let { cat ->
+                        categoryColorMap[cat] ?: fallbackCategoryColor(cat)
+                    }
                     NoteListCard(
                         note = note,
-                        onToggleFavorite = { viewModel.toggleFavorite(note) },
+                        categoryColor = noteCategoryColor,
                         onEdit = { onEditNoteClick(note.id) },
                         onPickCategory = {
                             isCategoryEditMode = false
                             categoryModalNote = note
                         },
-                        onToggleComplete = { viewModel.toggleCompleted(note) },
                         onCopy = {
                             val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             cm.setPrimaryClip(ClipData.newPlainText("Note", copyText))
@@ -490,6 +534,8 @@ fun NotesScreen(
                             .verticalScroll(rememberScrollState()),
                     ) {
                         state.categories.forEach { cat ->
+                            val catColor = categoryColorMap[cat] ?: fallbackCategoryColor(cat)
+                            val isSelected = targetNote.category == cat
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -503,18 +549,25 @@ fun NotesScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(catColor),
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
                                     Text(
                                         text = cat,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = if (targetNote.category == cat) palette.accent else palette.title,
+                                        color = if (isSelected) catColor else palette.title,
                                     )
-                                    if (targetNote.category == cat) {
+                                    if (isSelected) {
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Icon(
                                             imageVector = Icons.Filled.Check,
                                             contentDescription = null,
-                                            tint = palette.accent,
+                                            tint = catColor,
                                             modifier = Modifier.size(16.dp),
                                         )
                                     }
@@ -571,94 +624,20 @@ fun NotesScreen(
             },
         )
     }
-
-    // Bottom Sheet Backup & Restore
-    if (backupSheetVisible) {
-        ModalBottomSheet(
-            onDismissRequest = { backupSheetVisible = false },
-            containerColor = palette.card,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 28.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.backup_and_restore),
-                    color = palette.title,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 14.dp),
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            backupSheetVisible = false
-                            backupLauncher.launch(null)
-                        }
-                        .padding(vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Outlined.FileUpload, contentDescription = null, tint = palette.accent)
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column {
-                        Text("Backup Data", color = palette.title, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                        Text("Save notes and categories to local storage", color = palette.subtext, fontSize = 12.sp)
-                    }
-                }
-                HorizontalDivider(color = palette.border)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            backupSheetVisible = false
-                            restoreLauncher.launch(null)
-                        }
-                        .padding(vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Outlined.FileDownload, contentDescription = null, tint = palette.accent)
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column {
-                        Text("Restore Data", color = palette.title, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                        Text("Overwrite local data from a backup folder", color = palette.subtext, fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-    }
-
-    state.statusMessage?.let { msg ->
-        AlertDialog(
-            onDismissRequest = { viewModel.clearStatusMessage() },
-            containerColor = palette.card,
-            title = { Text("Notes", color = palette.title, fontWeight = FontWeight.Bold) },
-            text = { Text(msg, color = palette.subtext) },
-            confirmButton = {
-                TextButton(onClick = { viewModel.clearStatusMessage() }) {
-                    Text("OK", color = palette.accent, fontWeight = FontWeight.Bold)
-                }
-            },
-        )
-    }
 }
 
 @Composable
 private fun NoteListCard(
     note: NoteEntity,
-    onToggleFavorite: () -> Unit,
+    categoryColor: Color?,
     onEdit: () -> Unit,
     onPickCategory: () -> Unit,
-    onToggleComplete: () -> Unit,
     onCopy: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val palette = RemainderrTheme.palette
     var menuExpanded by remember { mutableStateOf(false) }
 
-    val timeLabel = remember(note.createdAt) { formatRelativeTime(note.createdAt) }
     val displayBody = remember(note.title, note.content) {
         when {
             note.content.isNotBlank() && note.title.isNotBlank() && note.title != "Untitled Note" ->
@@ -672,144 +651,147 @@ private fun NoteListCard(
     Card(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = palette.card),
-        border = BorderStroke(1.dp, palette.border),
+        border = BorderStroke(
+            width = 1.dp,
+            color = categoryColor?.copy(alpha = 0.25f) ?: palette.border,
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .alpha(if (note.isCompleted) 0.6f else 1f)
             .clickable(onClick = onEdit)
             .testTag("note_card_${note.id}"),
     ) {
         Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            if (!note.category.isNullOrBlank() && categoryColor != null) {
                 Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f),
                 ) {
-                    Text(
-                        text = timeLabel,
-                        color = palette.subtext,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (!note.category.isNullOrBlank()) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(categoryColor.copy(alpha = 0.14f))
+                            .border(1.dp, categoryColor.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(palette.accent.copy(alpha = 0.14f))
-                                .padding(horizontal = 8.dp, vertical = 2.dp),
-                        ) {
-                            Text(
-                                text = note.category,
-                                color = palette.accent,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = onToggleFavorite,
-                        modifier = Modifier.size(40.dp),
-                    ) {
-                        Icon(
-                            imageVector = if (note.isFavorite) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                            contentDescription = "Favorite",
-                            tint = if (note.isFavorite) palette.accent else palette.subtext,
-                            modifier = Modifier.size(18.dp),
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(categoryColor),
+                        )
+                        Text(
+                            text = note.category,
+                            color = categoryColor,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
                         )
                     }
-                    Box {
-                        IconButton(
-                            onClick = { menuExpanded = true },
-                            modifier = Modifier.size(40.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.MoreVert,
-                                contentDescription = "Note menu",
-                                tint = palette.subtext,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false },
-                            containerColor = palette.card,
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Edit Note", color = palette.title, fontWeight = FontWeight.SemiBold) },
-                                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null, tint = palette.title) },
-                                onClick = { menuExpanded = false; onEdit() },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Category", color = palette.title, fontWeight = FontWeight.SemiBold) },
-                                leadingIcon = { Icon(Icons.Filled.LocalOffer, contentDescription = null, tint = palette.title) },
-                                onClick = { menuExpanded = false; onPickCategory() },
-                            )
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        if (note.isCompleted) "Mark Incomplete" else "Mark Complete",
-                                        color = palette.title,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        if (note.isCompleted) Icons.AutoMirrored.Filled.Undo else Icons.Filled.CheckCircleOutline,
-                                        contentDescription = null,
-                                        tint = palette.title,
-                                    )
-                                },
-                                onClick = { menuExpanded = false; onToggleComplete() },
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Copy", color = palette.title, fontWeight = FontWeight.SemiBold) },
-                                leadingIcon = { Icon(Icons.Filled.ContentCopy, contentDescription = null, tint = palette.title) },
-                                onClick = { menuExpanded = false; onCopy() },
-                            )
-                            HorizontalDivider(color = palette.border)
-                            DropdownMenuItem(
-                                text = { Text("Delete", color = palette.delete, fontWeight = FontWeight.SemiBold) },
-                                leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null, tint = palette.delete) },
-                                onClick = { menuExpanded = false; onDelete() },
-                            )
-                        }
-                    }
+
+                    NoteCardMenuButton(
+                        menuExpanded = menuExpanded,
+                        onOpenMenu = { menuExpanded = true },
+                        onDismissMenu = { menuExpanded = false },
+                        onEdit = onEdit,
+                        onPickCategory = onPickCategory,
+                        onCopy = onCopy,
+                        onDelete = onDelete,
+                    )
+                }
+
+                Text(
+                    text = displayBody,
+                    color = palette.title,
+                    fontSize = 15.sp,
+                    lineHeight = 22.sp,
+                    maxLines = 6,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Text(
+                        text = displayBody,
+                        color = palette.title,
+                        fontSize = 15.sp,
+                        lineHeight = 22.sp,
+                        maxLines = 6,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(top = 6.dp, end = 8.dp),
+                    )
+                    NoteCardMenuButton(
+                        menuExpanded = menuExpanded,
+                        onOpenMenu = { menuExpanded = true },
+                        onDismissMenu = { menuExpanded = false },
+                        onEdit = onEdit,
+                        onPickCategory = onPickCategory,
+                        onCopy = onCopy,
+                        onDelete = onDelete,
+                    )
                 }
             }
-
-            Text(
-                text = displayBody,
-                color = palette.title,
-                fontSize = 15.sp,
-                lineHeight = 22.sp,
-                maxLines = 6,
-                overflow = TextOverflow.Ellipsis,
-                textDecoration = if (note.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
-            )
         }
     }
 }
 
-private fun formatRelativeTime(isoDate: String): String {
-    val instant = runCatching { Instant.parse(isoDate) }.getOrNull() ?: return ""
-    val diffSeconds = Duration.between(instant, Instant.now()).seconds.coerceAtLeast(0)
-    return when {
-        diffSeconds < 60 -> "Just now"
-        diffSeconds < 3600 -> "${diffSeconds / 60} hour ago"
-        diffSeconds < 86400 -> "${diffSeconds / 3600} hours ago"
-        else -> instant.atZone(ZoneId.systemDefault())
-            .toLocalDate()
-            .format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH))
+@Composable
+private fun NoteCardMenuButton(
+    menuExpanded: Boolean,
+    onOpenMenu: () -> Unit,
+    onDismissMenu: () -> Unit,
+    onEdit: () -> Unit,
+    onPickCategory: () -> Unit,
+    onCopy: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val palette = RemainderrTheme.palette
+    Box {
+        IconButton(
+            onClick = onOpenMenu,
+            modifier = Modifier.size(48.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.MoreVert,
+                contentDescription = "Note menu",
+                tint = palette.subtext,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = onDismissMenu,
+            containerColor = palette.card,
+        ) {
+            DropdownMenuItem(
+                text = { Text("Edit Note", color = palette.title, fontWeight = FontWeight.SemiBold) },
+                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null, tint = palette.title) },
+                onClick = { onDismissMenu(); onEdit() },
+            )
+            DropdownMenuItem(
+                text = { Text("Category", color = palette.title, fontWeight = FontWeight.SemiBold) },
+                leadingIcon = { Icon(Icons.Filled.LocalOffer, contentDescription = null, tint = palette.title) },
+                onClick = { onDismissMenu(); onPickCategory() },
+            )
+            DropdownMenuItem(
+                text = { Text("Copy", color = palette.title, fontWeight = FontWeight.SemiBold) },
+                leadingIcon = { Icon(Icons.Filled.ContentCopy, contentDescription = null, tint = palette.title) },
+                onClick = { onDismissMenu(); onCopy() },
+            )
+            HorizontalDivider(color = palette.border)
+            DropdownMenuItem(
+                text = { Text("Delete", color = palette.delete, fontWeight = FontWeight.SemiBold) },
+                leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null, tint = palette.delete) },
+                onClick = { onDismissMenu(); onDelete() },
+            )
+        }
     }
 }

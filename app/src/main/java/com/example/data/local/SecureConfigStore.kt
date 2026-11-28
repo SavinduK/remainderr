@@ -14,12 +14,12 @@ class SecureConfigStore(context: Context) {
     private val prefs = context.getSharedPreferences("remainderr_secure_prefs", Context.MODE_PRIVATE)
 
     companion object {
-        private const val KEY_ALIAS = "remainderr_gemini_aes_key"
+        private const val KEY_ALIAS = "remainderr_sync_aes_key"
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
-        private const val PREF_GEMINI_API_KEY = "enc_gemini_api_key"
-        private const val PREF_GEMINI_MODEL = "gemini_model"
-        const val DEFAULT_MODEL = "gemini-2.5-flash"
+        private const val PREF_DRIVE_EMAIL = "enc_drive_email"
+        private const val PREF_DRIVE_FOLDER_ID = "enc_drive_folder_id"
+        private const val PREF_LAST_SYNCED_AT = "drive_last_synced_at"
     }
 
     private fun getOrCreateSecretKey(): SecretKey {
@@ -57,25 +57,47 @@ class SecureConfigStore(context: Context) {
         return String(cipher.doFinal(encrypted), Charsets.UTF_8)
     }
 
-    fun getApiKey(): String {
-        val stored = prefs.getString(PREF_GEMINI_API_KEY, null) ?: return ""
+    fun getDriveEmail(): String {
+        val stored = prefs.getString(PREF_DRIVE_EMAIL, null) ?: return ""
         return runCatching { decrypt(stored) }.getOrDefault("")
     }
 
-    fun setApiKey(apiKey: String) {
-        if (apiKey.isBlank()) {
-            prefs.edit().remove(PREF_GEMINI_API_KEY).apply()
+    fun setDriveEmail(email: String) {
+        if (email.isBlank()) {
+            prefs.edit().remove(PREF_DRIVE_EMAIL).apply()
         } else {
-            val encrypted = encrypt(apiKey.trim())
-            prefs.edit().putString(PREF_GEMINI_API_KEY, encrypted).apply()
+            prefs.edit().putString(PREF_DRIVE_EMAIL, encrypt(email.trim())).apply()
         }
     }
 
-    fun getModel(): String {
-        return prefs.getString(PREF_GEMINI_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
+    fun getDriveFolderId(): String {
+        val stored = prefs.getString(PREF_DRIVE_FOLDER_ID, null) ?: return ""
+        return runCatching { decrypt(stored) }.getOrDefault("")
     }
 
-    fun setModel(model: String) {
-        prefs.edit().putString(PREF_GEMINI_MODEL, model).apply()
+    fun setDriveFolderId(folderId: String) {
+        if (folderId.isBlank()) {
+            prefs.edit().remove(PREF_DRIVE_FOLDER_ID).apply()
+        } else {
+            prefs.edit().putString(PREF_DRIVE_FOLDER_ID, encrypt(folderId.trim())).apply()
+        }
+    }
+
+    fun getLastSyncedAt(): Long = prefs.getLong(PREF_LAST_SYNCED_AT, 0L)
+
+    fun setLastSyncedAt(epochMillis: Long) {
+        if (epochMillis <= 0L) {
+            prefs.edit().remove(PREF_LAST_SYNCED_AT).apply()
+        } else {
+            prefs.edit().putLong(PREF_LAST_SYNCED_AT, epochMillis).apply()
+        }
+    }
+
+    fun clearDriveSyncMetadata() {
+        prefs.edit()
+            .remove(PREF_DRIVE_EMAIL)
+            .remove(PREF_DRIVE_FOLDER_ID)
+            .remove(PREF_LAST_SYNCED_AT)
+            .apply()
     }
 }

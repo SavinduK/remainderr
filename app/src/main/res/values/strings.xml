@@ -37,28 +37,19 @@
     <string name="notes_title">Notes</string>
     <string name="search_placeholder">Search</string>
     <string name="all_notes_tab">All Notes</string>
-    <string name="favorites_tab">Favorites</string>
     <string name="categories_tab">Categories</string>
     <string name="no_notes_found">No notes found</string>
 
-    <!-- Settings -->
+    <!-- Settings & Google Drive Sync -->
     <string name="settings_title">Settings</string>
-    <string name="ai_configuration">AI Configuration</string>
-    <string name="backup_and_restore">Backup &amp; Restore</string>
+    <string name="google_drive_sync">Google Drive Sync</string>
     <string name="password_tracker">Password Tracker</string>
-    <string name="clinical_tracker">Clinical Tracker</string>
 
     <!-- Passwords -->
     <string name="passwords_title">Passwords</string>
     <string name="new_password_entry">New Entry</string>
     <string name="delete_credential_title">Delete Credential?</string>
     <string name="delete_credential_subtext">This action cannot be undone.</string>
-
-    <!-- Clinical History -->
-    <string name="patient_histories_title">Patient Histories</string>
-    <string name="clinical_workflow_subtitle">CLINICAL WORKFLOW</string>
-    <string name="history_checklist_title">History Checklist</string>
-    <string name="upload_note_title">Upload Note</string>
 
     <!-- Common -->
     <string name="action_cancel">Cancel</string>

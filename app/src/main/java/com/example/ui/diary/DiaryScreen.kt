@@ -1,7 +1,5 @@
 package com.example.ui.diary
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,30 +16,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.CloudDownload
-import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,7 +61,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiaryScreen(
     viewModel: DiaryViewModel,
@@ -80,22 +70,9 @@ fun DiaryScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val palette = RemainderrTheme.palette
-    var backupSheetVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadEntries()
-    }
-
-    val backupLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree(),
-    ) { uri ->
-        uri?.let { viewModel.backupDiary(it) }
-    }
-
-    val restoreLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree(),
-    ) { uri ->
-        uri?.let { viewModel.restoreDiary(it) }
     }
 
     Column(
@@ -118,39 +95,21 @@ fun DiaryScreen(
                 fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(palette.card)
-                        .clickable { backupSheetVisible = true }
-                        .testTag("diary_backup_button"),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CloudUpload,
-                        contentDescription = stringResource(R.string.backup_and_restore),
-                        tint = palette.title,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(palette.accent)
-                        .clickable(onClick = onAddEntryClick)
-                        .testTag("add_diary_button"),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = "New journal entry",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(palette.accent)
+                    .clickable(onClick = onAddEntryClick)
+                    .testTag("add_diary_button"),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "New journal entry",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp),
+                )
             }
         }
 
@@ -189,73 +148,6 @@ fun DiaryScreen(
                 }
             }
         }
-    }
-
-    if (backupSheetVisible) {
-        ModalBottomSheet(
-            onDismissRequest = { backupSheetVisible = false },
-            containerColor = palette.card,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 28.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.backup_and_restore),
-                    color = palette.title,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            backupSheetVisible = false
-                            backupLauncher.launch(null)
-                        }
-                        .padding(vertical = 14.dp, horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Icon(Icons.Outlined.CloudUpload, contentDescription = null, tint = palette.accent)
-                    Text("Backup Data", color = palette.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                }
-                HorizontalDivider(color = palette.border)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            backupSheetVisible = false
-                            restoreLauncher.launch(null)
-                        }
-                        .padding(vertical = 14.dp, horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Icon(Icons.Outlined.CloudDownload, contentDescription = null, tint = palette.accent)
-                    Text("Restore Data", color = palette.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-    }
-
-    state.statusMessage?.let { msg ->
-        AlertDialog(
-            onDismissRequest = { viewModel.clearStatusMessage() },
-            containerColor = palette.card,
-            title = { Text("Journal", color = palette.title, fontWeight = FontWeight.Bold) },
-            text = { Text(msg, color = palette.subtext) },
-            confirmButton = {
-                TextButton(onClick = { viewModel.clearStatusMessage() }) {
-                    Text("OK", color = palette.accent, fontWeight = FontWeight.Bold)
-                }
-            },
-        )
     }
 }
 

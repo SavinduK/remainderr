@@ -34,7 +34,7 @@ data class CreditCardEntity(
     val bankName: String,
     val cardNumber: String,
     val expiry: String,
-    val type: String, // "Visa" or "Mastercard"
+    val type: String,
     val cardHolder: String,
     val color: String,
 )
@@ -46,7 +46,7 @@ data class NoteEntity(
     val title: String,
     val content: String,
     val createdAt: String,
-    val isFavorite: Boolean,
+    val isFavorite: Boolean = false,
     val isCompleted: Boolean = false,
     val category: String? = null,
 )
@@ -64,13 +64,4 @@ data class PasswordEntity(
     val site: String,
     val username: String,
     val password: String,
-)
-
-@Entity(tableName = "checklist_items")
-data class ChecklistItemEntity(
-    @PrimaryKey val id: String,
-    val category: String,
-    val title: String,
-    val checked: Boolean,
-    val sortOrder: Int = 0,
 )

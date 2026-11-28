@@ -5,11 +5,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -24,11 +26,17 @@ import com.example.ui.diary.AddDiaryEntryScreen
 import com.example.ui.diary.DiaryScreen
 import com.example.ui.diary.DiaryViewModel
 import com.example.ui.diary.EditDiaryEntryScreen
-import com.example.ui.history.ClinicalChecklistScreen
-import com.example.ui.history.ClinicalHistoryScreen
-import com.example.ui.history.ClinicalHistoryViewModel
-import com.example.ui.history.ClinicalInputScreen
-import com.example.ui.history.ClinicalViewScreen
+import com.example.ui.navigation.AddDiaryEntryRoute
+import com.example.ui.navigation.AddNoteRoute
+import com.example.ui.navigation.AddTaskRoute
+import com.example.ui.navigation.AddTransactionRoute
+import com.example.ui.navigation.DiaryRoute
+import com.example.ui.navigation.EditDiaryEntryRoute
+import com.example.ui.navigation.NotesRoute
+import com.example.ui.navigation.PasswordsRoute
+import com.example.ui.navigation.SettingsRoute
+import com.example.ui.navigation.TasksRoute
+import com.example.ui.navigation.TransactionsRoute
 import com.example.ui.notes.AddNoteScreen
 import com.example.ui.notes.NotesScreen
 import com.example.ui.notes.NotesViewModel
@@ -43,21 +51,6 @@ import com.example.ui.theme.RemainderrTheme
 import com.example.ui.transactions.AddTransactionScreen
 import com.example.ui.transactions.TransactionsScreen
 import com.example.ui.transactions.TransactionsViewModel
-import com.example.ui.navigation.AddDiaryEntryRoute
-import com.example.ui.navigation.AddNoteRoute
-import com.example.ui.navigation.AddTaskRoute
-import com.example.ui.navigation.AddTransactionRoute
-import com.example.ui.navigation.ClinicalChecklistRoute
-import com.example.ui.navigation.ClinicalHistoryRoute
-import com.example.ui.navigation.ClinicalInputRoute
-import com.example.ui.navigation.ClinicalViewRoute
-import com.example.ui.navigation.DiaryRoute
-import com.example.ui.navigation.EditDiaryEntryRoute
-import com.example.ui.navigation.NotesRoute
-import com.example.ui.navigation.PasswordsRoute
-import com.example.ui.navigation.SettingsRoute
-import com.example.ui.navigation.TasksRoute
-import com.example.ui.navigation.TransactionsRoute
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -76,31 +69,23 @@ class MainActivity : ComponentActivity() {
                     factory = TasksViewModel.Factory(container.repository),
                 )
                 val diaryViewModel: DiaryViewModel = viewModel(
-                    factory = DiaryViewModel.Factory(container.diaryFileStore, container.backupRestoreManager),
+                    factory = DiaryViewModel.Factory(container.diaryFileStore),
                 )
                 val transactionsViewModel: TransactionsViewModel = viewModel(
                     factory = TransactionsViewModel.Factory(container.repository),
                 )
                 val notesViewModel: NotesViewModel = viewModel(
-                    factory = NotesViewModel.Factory(container.repository, container.backupRestoreManager),
+                    factory = NotesViewModel.Factory(container.repository),
                 )
                 val settingsViewModel: SettingsViewModel = viewModel(
                     factory = SettingsViewModel.Factory(
+                        container.googleDriveSyncManager,
                         container.secureConfigStore,
-                        container.clinicalHistoryStore,
-                        container.backupRestoreManager,
                         container.repository,
                     ),
                 )
                 val passwordsViewModel: PasswordsViewModel = viewModel(
                     factory = PasswordsViewModel.Factory(container.repository),
-                )
-                val clinicalViewModel: ClinicalHistoryViewModel = viewModel(
-                    factory = ClinicalHistoryViewModel.Factory(
-                        container.clinicalHistoryStore,
-                        container.geminiExtractor,
-                        container.repository,
-                    ),
                 )
 
                 val showBottomBar = destination == null ||
@@ -109,11 +94,7 @@ class MainActivity : ComponentActivity() {
                     destination.hasRoute<TransactionsRoute>() ||
                     destination.hasRoute<NotesRoute>() ||
                     destination.hasRoute<SettingsRoute>() ||
-                    destination.hasRoute<PasswordsRoute>() ||
-                    destination.hasRoute<ClinicalHistoryRoute>() ||
-                    destination.hasRoute<ClinicalInputRoute>() ||
-                    destination.hasRoute<ClinicalViewRoute>() ||
-                    destination.hasRoute<ClinicalChecklistRoute>()
+                    destination.hasRoute<PasswordsRoute>()
 
                 val activeTab = when {
                     destination == null || destination.hasRoute<TasksRoute>() -> MainTab.TASKS
@@ -125,7 +106,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Scaffold(
-                    contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
                     bottomBar = {
                         if (showBottomBar) {
                             RemainderrBottomBar(
@@ -153,7 +134,7 @@ class MainActivity : ComponentActivity() {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(bottom = if (showBottomBar) innerPadding.calculateBottomPadding() else androidx.compose.ui.unit.Dp(0f)),
+                            .padding(bottom = if (showBottomBar) innerPadding.calculateBottomPadding() else 0.dp),
                     ) {
                         NavHost(
                             navController = navController,
@@ -236,42 +217,11 @@ class MainActivity : ComponentActivity() {
                                 SettingsScreen(
                                     viewModel = settingsViewModel,
                                     onOpenPasswords = { navController.navigate(PasswordsRoute) },
-                                    onOpenClinicalTracker = { navController.navigate(ClinicalHistoryRoute) },
                                 )
                             }
 
                             composable<PasswordsRoute> {
                                 PasswordsScreen(viewModel = passwordsViewModel)
-                            }
-
-                            composable<ClinicalHistoryRoute> {
-                                ClinicalHistoryScreen(
-                                    viewModel = clinicalViewModel,
-                                    onOpenChecklist = { navController.navigate(ClinicalChecklistRoute) },
-                                    onOpenInput = { navController.navigate(ClinicalInputRoute) },
-                                    onOpenFile = { fileName ->
-                                        navController.navigate(ClinicalViewRoute(fileName))
-                                    },
-                                )
-                            }
-                            composable<ClinicalInputRoute> {
-                                ClinicalInputScreen(
-                                    viewModel = clinicalViewModel,
-                                    onExtractedSuccess = {
-                                        navController.popBackStack()
-                                    },
-                                )
-                            }
-                            composable<ClinicalViewRoute> { entry ->
-                                val route = entry.toRoute<ClinicalViewRoute>()
-                                ClinicalViewScreen(
-                                    fileName = route.fileName,
-                                    viewModel = clinicalViewModel,
-                                    onBack = { navController.popBackStack() },
-                                )
-                            }
-                            composable<ClinicalChecklistRoute> {
-                                ClinicalChecklistScreen(viewModel = clinicalViewModel)
                             }
                         }
                     }
@@ -280,5 +230,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-private fun Int.dp_zero() = androidx.compose.ui.unit.Dp(0f)

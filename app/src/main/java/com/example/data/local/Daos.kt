@@ -89,12 +89,6 @@ interface NoteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(notes: List<NoteEntity>)
 
-    @Query("UPDATE notes SET isFavorite = :isFavorite WHERE id = :id")
-    suspend fun updateFavorite(id: String, isFavorite: Boolean)
-
-    @Query("UPDATE notes SET isCompleted = :isCompleted WHERE id = :id")
-    suspend fun updateCompleted(id: String, isCompleted: Boolean)
-
     @Query("UPDATE notes SET category = :category WHERE id = :id")
     suspend fun updateCategory(id: String, category: String?)
 
@@ -148,25 +142,4 @@ interface PasswordDao {
 
     @Query("DELETE FROM passwords")
     suspend fun deleteAll()
-}
-
-@Dao
-interface ChecklistDao {
-    @Query("SELECT * FROM checklist_items ORDER BY sortOrder ASC")
-    fun observeAll(): Flow<List<ChecklistItemEntity>>
-
-    @Query("SELECT COUNT(*) FROM checklist_items")
-    suspend fun count(): Int
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(item: ChecklistItemEntity)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(items: List<ChecklistItemEntity>)
-
-    @Query("UPDATE checklist_items SET checked = :checked WHERE id = :id")
-    suspend fun updateChecked(id: String, checked: Boolean)
-
-    @Query("DELETE FROM checklist_items WHERE id = :id")
-    suspend fun deleteById(id: String)
 }

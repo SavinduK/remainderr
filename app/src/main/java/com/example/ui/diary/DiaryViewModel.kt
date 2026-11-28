@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.data.backup.BackupRestoreManager
 import com.example.data.local.DiaryEntryModel
 import com.example.data.local.DiaryFileStore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,12 +13,10 @@ import kotlinx.coroutines.launch
 
 data class DiaryUiState(
     val entries: List<DiaryEntryModel> = emptyList(),
-    val statusMessage: String? = null,
 )
 
 class DiaryViewModel(
     private val diaryStore: DiaryFileStore,
-    private val backupManager: BackupRestoreManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DiaryUiState())
@@ -78,36 +75,12 @@ class DiaryViewModel(
         }
     }
 
-    fun backupDiary(treeUri: Uri) {
-        viewModelScope.launch {
-            val result = backupManager.backupDiaryOnly(treeUri)
-            _uiState.value = _uiState.value.copy(
-                statusMessage = result.getOrElse { it.message ?: "Failed to complete backup." },
-            )
-        }
-    }
-
-    fun restoreDiary(treeUri: Uri) {
-        viewModelScope.launch {
-            val result = backupManager.restoreDiaryOnly(treeUri)
-            loadEntries()
-            _uiState.value = _uiState.value.copy(
-                statusMessage = result.getOrElse { it.message ?: "Failed to restore data." },
-            )
-        }
-    }
-
-    fun clearStatusMessage() {
-        _uiState.value = _uiState.value.copy(statusMessage = null)
-    }
-
     class Factory(
         private val diaryStore: DiaryFileStore,
-        private val backupManager: BackupRestoreManager,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return DiaryViewModel(diaryStore, backupManager) as T
+            return DiaryViewModel(diaryStore) as T
         }
     }
 }
