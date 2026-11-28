@@ -10,9 +10,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -652,57 +654,34 @@ private fun NoteListCard(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = palette.card),
         border = BorderStroke(
-            width = 1.dp,
-            color = categoryColor?.copy(alpha = 0.25f) ?: palette.border,
+            width = if (categoryColor != null) 1.5.dp else 1.dp,
+            color = categoryColor?.copy(alpha = 0.55f) ?: palette.border,
         ),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onEdit)
             .testTag("note_card_${note.id}"),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
-            if (!note.category.isNullOrBlank() && categoryColor != null) {
-                Row(
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min),
+        ) {
+            if (categoryColor != null) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(categoryColor.copy(alpha = 0.14f))
-                            .border(1.dp, categoryColor.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(7.dp)
-                                .clip(CircleShape)
-                                .background(categoryColor),
-                        )
-                        Text(
-                            text = note.category,
-                            color = categoryColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-
-                    NoteCardMenuButton(
-                        menuExpanded = menuExpanded,
-                        onOpenMenu = { menuExpanded = true },
-                        onDismissMenu = { menuExpanded = false },
-                        onEdit = onEdit,
-                        onPickCategory = onPickCategory,
-                        onCopy = onCopy,
-                        onDelete = onDelete,
-                    )
-                }
-
+                        .width(6.dp)
+                        .fillMaxHeight()
+                        .background(categoryColor),
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
                 Text(
                     text = displayBody,
                     color = palette.title,
@@ -710,34 +689,18 @@ private fun NoteListCard(
                     lineHeight = 22.sp,
                     maxLines = 6,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(top = 6.dp, end = 8.dp),
                 )
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    Text(
-                        text = displayBody,
-                        color = palette.title,
-                        fontSize = 15.sp,
-                        lineHeight = 22.sp,
-                        maxLines = 6,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(top = 6.dp, end = 8.dp),
-                    )
-                    NoteCardMenuButton(
-                        menuExpanded = menuExpanded,
-                        onOpenMenu = { menuExpanded = true },
-                        onDismissMenu = { menuExpanded = false },
-                        onEdit = onEdit,
-                        onPickCategory = onPickCategory,
-                        onCopy = onCopy,
-                        onDelete = onDelete,
-                    )
-                }
+                NoteCardMenuButton(
+                    menuExpanded = menuExpanded,
+                    onOpenMenu = { menuExpanded = true },
+                    onDismissMenu = { menuExpanded = false },
+                    onPickCategory = onPickCategory,
+                    onCopy = onCopy,
+                    onDelete = onDelete,
+                )
             }
         }
     }
@@ -748,7 +711,6 @@ private fun NoteCardMenuButton(
     menuExpanded: Boolean,
     onOpenMenu: () -> Unit,
     onDismissMenu: () -> Unit,
-    onEdit: () -> Unit,
     onPickCategory: () -> Unit,
     onCopy: () -> Unit,
     onDelete: () -> Unit,
@@ -771,11 +733,6 @@ private fun NoteCardMenuButton(
             onDismissRequest = onDismissMenu,
             containerColor = palette.card,
         ) {
-            DropdownMenuItem(
-                text = { Text("Edit Note", color = palette.title, fontWeight = FontWeight.SemiBold) },
-                leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null, tint = palette.title) },
-                onClick = { onDismissMenu(); onEdit() },
-            )
             DropdownMenuItem(
                 text = { Text("Category", color = palette.title, fontWeight = FontWeight.SemiBold) },
                 leadingIcon = { Icon(Icons.Filled.LocalOffer, contentDescription = null, tint = palette.title) },

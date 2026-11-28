@@ -13,8 +13,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,13 +25,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.CloudDownload
@@ -80,7 +76,6 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     else -> null
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
@@ -212,67 +207,10 @@ fun SettingsScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Dedicated folder & synced datasets summary
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(palette.secondarySurface)
-                            .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Folder,
-                                contentDescription = null,
-                                tint = palette.accent,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Text(
-                                text = "Drive Folder: ${state.folderName}",
-                                color = palette.title,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
-
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            listOf("Notes", "Tasks", "Transactions", "Passwords").forEach { item ->
-                                Row(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(palette.card)
-                                        .border(1.dp, palette.border, RoundedCornerShape(8.dp))
-                                        .padding(horizontal = 9.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp),
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .clip(CircleShape)
-                                            .background(palette.accent),
-                                    )
-                                    Text(
-                                        text = item,
-                                        color = palette.text,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                }
-                            }
-                        }
-
+                    if (state.isConnected) {
+                        Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "Last synced: $lastSyncLabel",
+                            text = "Folder: ${state.folderName} • Last synced: $lastSyncLabel",
                             color = palette.subtext,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,

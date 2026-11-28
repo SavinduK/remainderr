@@ -9,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.local.SecureConfigStore
 import com.example.data.remote.GoogleDriveSyncManager
 import com.example.data.repository.RemainderrRepository
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.CommonStatusCodes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -112,7 +114,7 @@ class SettingsViewModel(
 
     fun handleAuthorizationIntentResult(activity: Activity, resultCode: Int, data: Intent?) {
         val action = _uiState.value.pendingAction ?: DriveAction.SYNC
-        if (resultCode != Activity.RESULT_OK || data == null) {
+        if (data == null && resultCode != Activity.RESULT_OK) {
             _uiState.update {
                 it.copy(
                     isSyncing = false,
@@ -133,6 +135,15 @@ class SettingsViewModel(
                 val token = authResult.accessToken
                 if (!token.isNullOrBlank()) {
                     executeDriveAction(token, action)
+                } else if (resultCode != Activity.RESULT_OK) {
+                    _uiState.update {
+                        it.copy(
+                            isSyncing = false,
+                            pendingAction = null,
+                            alertTitle = "Google Drive",
+                            alertMessage = "Google Drive sign-in was canceled.",
+                        )
+                    }
                 } else {
                     _uiState.update {
                         it.copy(
@@ -144,12 +155,23 @@ class SettingsViewModel(
                     }
                 }
             }.onFailure { err ->
+                val message = when (err) {
+                    is ApiException -> when (err.statusCode) {
+                        CommonStatusCodes.CANCELED -> "Google Drive sign-in was canceled."
+                        CommonStatusCodes.DEVELOPER_ERROR ->
+                            "Android app signing certificate is not registered for Google Sign-In (DEVELOPER_ERROR)."
+                        CommonStatusCodes.NETWORK_ERROR ->
+                            "Network error during Google Drive sign-in. Please check your connection."
+                        else -> "Google Drive authorization failed (code ${err.statusCode})."
+                    }
+                    else -> err.message ?: "Could not complete Google Drive sign-in."
+                }
                 _uiState.update {
                     it.copy(
                         isSyncing = false,
                         pendingAction = null,
                         alertTitle = "Authorization Error",
-                        alertMessage = err.message ?: "Could not complete Google Drive sign-in.",
+                        alertMessage = message,
                     )
                 }
             }
